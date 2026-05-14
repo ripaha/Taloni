@@ -1,0 +1,1644 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1a3d2e">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Taloni</title>
+<link rel="manifest" id="manifestLink">
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%231a3d2e"/><path d="M50 22 L78 44 L78 76 L22 76 L22 44 Z" fill="none" stroke="%23c4622d" stroke-width="5" stroke-linejoin="round"/><circle cx="50" cy="58" r="6" fill="%23c4622d"/></svg>'>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,400;0,600;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #f5f1e8; --bg-card: #fffcf5; --ink: #1a2820; --ink-soft: #5a6b5e;
+  --accent: #1a3d2e; --accent-warm: #c4622d; --accent-soft: #e8dfc8;
+  --border: #d9d0bd; --danger: #a83232; --success: #2d7a4f;
+  --shadow: 0 1px 2px rgba(26, 40, 32, 0.04), 0 4px 12px rgba(26, 40, 32, 0.06);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+html, body { height: 100%; overscroll-behavior-y: none; }
+body { font-family: 'Inter', -apple-system, sans-serif; background: var(--bg); color: var(--ink); font-size: 15px; line-height: 1.5; padding-bottom: env(safe-area-inset-bottom); }
+body::before { content: ''; position: fixed; inset: 0; background-image: radial-gradient(circle at 20% 30%, rgba(196, 98, 45, 0.03) 0%, transparent 50%), radial-gradient(circle at 80% 70%, rgba(26, 61, 46, 0.04) 0%, transparent 50%); pointer-events: none; z-index: 0; }
+#app { position: relative; z-index: 1; max-width: 480px; margin: 0 auto; min-height: 100vh; padding-bottom: 88px; }
+
+/* Header */
+.header { padding: 24px 20px 16px; padding-top: max(24px, env(safe-area-inset-top)); background: linear-gradient(180deg, var(--accent) 0%, #15332a 100%); color: var(--bg); position: relative; overflow: hidden; }
+.header::after { content: ''; position: absolute; bottom: -1px; left: 0; right: 0; height: 24px; background: var(--bg); clip-path: polygon(0 100%, 100% 100%, 100% 60%, 0 100%); }
+.header-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+.brand { font-family: 'Fraunces', serif; font-weight: 600; font-size: 22px; letter-spacing: -0.02em; }
+.brand .accent { color: var(--accent-warm); font-style: italic; font-weight: 400; }
+.property-switcher { background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.15); padding: 6px 12px 6px 14px; border-radius: 100px; color: var(--bg); font-size: 13px; font-weight: 500; cursor: pointer; display: flex; align-items: center; gap: 6px; font-family: inherit; }
+.property-switcher:active { background: rgba(255,255,255,0.18); }
+.property-name { font-family: 'Fraunces', serif; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 2px; word-break: break-word; }
+.property-meta { font-size: 13px; opacity: 0.75; }
+
+/* Back nav */
+.back-nav { padding: 14px 20px 4px; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+.back-nav-arrow { font-size: 18px; color: var(--accent); }
+.back-nav-text { font-size: 14px; color: var(--accent); font-weight: 500; }
+
+.content { padding: 16px 20px 20px; }
+.tab-content { display: none; }
+.tab-content.active { display: block; animation: fadeIn 0.25s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+
+.section-title { font-family: 'Fraunces', serif; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; color: var(--ink-soft); margin: 24px 0 12px; display: flex; align-items: center; gap: 8px; }
+.section-title::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+.section-title:first-child { margin-top: 0; }
+.section-title .action { font-family: 'Inter', sans-serif; text-transform: none; letter-spacing: 0; font-size: 13px; font-weight: 500; color: var(--accent-warm); cursor: pointer; }
+.section-title .action::before { display: none; }
+.section-title:has(.action)::after { margin-right: 12px; }
+
+/* Stats */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 12px; text-align: center; }
+.stat-num { font-family: 'Fraunces', serif; font-size: 26px; font-weight: 600; color: var(--accent); line-height: 1; }
+.stat-num.warn { color: var(--accent-warm); }
+.stat-num.danger { color: var(--danger); }
+.stat-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin-top: 6px; }
+
+/* Cards */
+.card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; margin-bottom: 8px; box-shadow: var(--shadow); cursor: pointer; transition: transform 0.15s ease; position: relative; }
+.card:active { transform: scale(0.98); }
+.card.overdue { border-color: var(--danger); border-left: 3px solid var(--danger); }
+.card.soon { border-left: 3px solid var(--accent-warm); }
+.card-row { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.card-icon { width: 36px; height: 36px; background: var(--accent-soft); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.card-main { flex: 1; min-width: 0; }
+.card-title { font-weight: 600; font-size: 15px; color: var(--ink); margin-bottom: 2px; word-break: break-word; }
+.card-meta { font-size: 12px; color: var(--ink-soft); display: flex; gap: 8px; flex-wrap: wrap; }
+.card-meta .dot { color: var(--border); }
+
+.badge { font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 100px; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+.badge.danger { background: #fde8e8; color: var(--danger); }
+.badge.warn { background: #fdf0e0; color: var(--accent-warm); }
+.badge.ok { background: #e0f0e6; color: var(--success); }
+.badge.neutral { background: var(--accent-soft); color: var(--accent); }
+
+.empty { text-align: center; padding: 48px 20px; color: var(--ink-soft); }
+.empty-icon { font-size: 40px; margin-bottom: 12px; opacity: 0.4; }
+.empty-title { font-family: 'Fraunces', serif; font-size: 18px; color: var(--ink); margin-bottom: 6px; }
+.empty-action { margin-top: 16px; }
+
+.fab { position: fixed; right: max(20px, calc(50% - 220px)); bottom: calc(80px + env(safe-area-inset-bottom)); width: 56px; height: 56px; background: var(--accent-warm); color: white; border: none; border-radius: 50%; font-size: 28px; font-weight: 300; box-shadow: 0 4px 16px rgba(196, 98, 45, 0.4); cursor: pointer; z-index: 50; transition: transform 0.15s ease; }
+.fab:active { transform: scale(0.92); }
+
+/* Nav */
+.nav { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; padding-bottom: env(safe-area-inset-bottom); z-index: 40; }
+.nav-inner { max-width: 480px; margin: 0 auto; width: 100%; display: grid; grid-template-columns: repeat(4, 1fr); }
+.nav-btn { background: none; border: none; padding: 10px 4px 8px; color: var(--ink-soft); font-size: 11px; font-family: inherit; font-weight: 500; display: flex; flex-direction: column; align-items: center; gap: 3px; cursor: pointer; position: relative; }
+.nav-btn .icon { font-size: 20px; line-height: 1; }
+.nav-btn.active { color: var(--accent); }
+.nav-btn.active::before { content: ''; position: absolute; top: 0; left: 50%; transform: translateX(-50%); width: 28px; height: 2px; background: var(--accent-warm); border-radius: 0 0 2px 2px; }
+
+/* Modal */
+.modal { position: fixed; inset: 0; background: rgba(26, 40, 32, 0.5); z-index: 100; display: none; align-items: flex-end; backdrop-filter: blur(4px); }
+.modal.active { display: flex; animation: fadeIn 0.2s ease; }
+.modal-sheet { background: var(--bg-card); width: 100%; max-width: 480px; margin: 0 auto; border-radius: 20px 20px 0 0; padding: 8px 20px 24px; padding-bottom: calc(24px + env(safe-area-inset-bottom)); max-height: 90vh; overflow-y: auto; animation: slideUp 0.25s ease; }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.modal-handle { width: 36px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+.modal-title { font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600; margin-bottom: 4px; }
+.modal-subtitle { font-size: 13px; color: var(--ink-soft); margin-bottom: 20px; }
+
+/* Forms */
+.field { margin-bottom: 16px; }
+.field label { display: block; font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin-bottom: 6px; }
+.field input, .field select, .field textarea { width: 100%; padding: 12px 14px; border: 1px solid var(--border); border-radius: 10px; font-size: 16px; font-family: inherit; background: var(--bg); color: var(--ink); transition: border-color 0.15s ease; }
+.field input:focus, .field select:focus, .field textarea:focus { outline: none; border-color: var(--accent); }
+.field textarea { resize: vertical; min-height: 80px; }
+.field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field-help { font-size: 12px; color: var(--ink-soft); margin-top: 6px; }
+
+/* Buttons */
+.btn { padding: 13px 20px; border: none; border-radius: 10px; font-size: 15px; font-weight: 600; font-family: inherit; cursor: pointer; transition: transform 0.1s ease; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--accent); color: white; width: 100%; }
+.btn-secondary { background: var(--accent-soft); color: var(--accent); width: 100%; }
+.btn-ghost { background: transparent; color: var(--ink-soft); }
+.btn-danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); width: 100%; }
+.btn-row { display: flex; gap: 8px; margin-top: 8px; }
+.btn-row .btn { flex: 1; }
+
+/* List items / picker rows */
+.list-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 6px; cursor: pointer; transition: transform 0.1s; }
+.list-item:active { transform: scale(0.98); }
+.list-item .icon { width: 32px; height: 32px; background: var(--accent-soft); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; font-size: 16px; }
+.list-item .text { flex: 1; min-width: 0; }
+.list-item .text .name { font-weight: 600; font-size: 14px; }
+.list-item .text .sub { font-size: 12px; color: var(--ink-soft); }
+.list-item .arrow { color: var(--ink-soft); font-size: 18px; }
+
+/* Property selector hero */
+.property-hero {
+  background: linear-gradient(135deg, var(--accent) 0%, #2d5e47 100%);
+  color: white; border-radius: 16px; padding: 24px; margin-bottom: 12px;
+  cursor: pointer; transition: transform 0.15s; position: relative; overflow: hidden;
+}
+.property-hero:active { transform: scale(0.98); }
+.property-hero::after {
+  content: ''; position: absolute; right: -40px; top: -40px;
+  width: 160px; height: 160px; border-radius: 50%;
+  background: rgba(196, 98, 45, 0.15);
+}
+.property-hero h3 { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; margin-bottom: 4px; position: relative; }
+.property-hero .meta { font-size: 13px; opacity: 0.85; position: relative; }
+
+.property-add { border: 2px dashed var(--border); background: transparent; border-radius: 16px; padding: 24px; text-align: center; cursor: pointer; transition: border-color 0.15s; }
+.property-add:active { border-color: var(--accent-warm); }
+.property-add .label { font-family: 'Fraunces', serif; font-size: 16px; color: var(--ink-soft); }
+
+/* Setting row */
+.setting-row { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; margin-bottom: 8px; cursor: pointer; }
+.setting-row .label { font-weight: 500; }
+.setting-row .value { font-size: 13px; color: var(--ink-soft); margin-top: 2px; }
+
+/* Toast */
+.toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 18px; border-radius: 100px; font-size: 14px; font-weight: 500; z-index: 200; opacity: 0; transition: opacity 0.2s ease; pointer-events: none; white-space: nowrap; max-width: 90vw; text-align: center; }
+.toast.show { opacity: 1; }
+
+/* Photo grid */
+.photo-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
+.photo-thumb { aspect-ratio: 1; background: var(--accent-soft); border-radius: 8px; overflow: hidden; position: relative; cursor: pointer; }
+.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-thumb .remove { position: absolute; top: 4px; right: 4px; width: 22px; height: 22px; background: rgba(168, 50, 50, 0.9); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; border: none; }
+.photo-add { aspect-ratio: 1; border: 2px dashed var(--border); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--ink-soft); cursor: pointer; background: transparent; }
+
+/* Detail hero */
+.detail-hero { background: var(--accent-soft); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+.detail-hero h2 { font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; margin-bottom: 4px; word-break: break-word; }
+.detail-meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(26, 61, 46, 0.15); }
+.detail-meta-item .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+.detail-meta-item .value { font-family: 'Fraunces', serif; font-size: 16px; font-weight: 600; margin-top: 2px; }
+
+/* Doc card */
+.doc-card { display: flex; align-items: center; gap: 12px; }
+.doc-icon { width: 44px; height: 44px; border-radius: 8px; background: var(--accent-soft); display: flex; align-items: center; justify-content: center; font-family: 'Fraunces', serif; font-size: 12px; font-weight: 700; color: var(--accent); flex-shrink: 0; text-transform: uppercase; }
+.doc-icon.pdf { background: #fde8e0; color: var(--accent-warm); }
+.doc-icon.img { background: #e0f0e6; color: var(--success); }
+
+/* History */
+.history-item { padding: 12px 0; border-bottom: 1px solid var(--border); display: flex; gap: 12px; }
+.history-item:last-child { border-bottom: none; }
+.history-date { font-family: 'Fraunces', serif; font-size: 13px; color: var(--ink-soft); min-width: 60px; }
+.history-content { flex: 1; }
+.history-content .what { font-weight: 500; margin-bottom: 2px; }
+.history-content .notes { font-size: 13px; color: var(--ink-soft); }
+
+/* Menu grid (Lisää-tab) */
+.menu-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+.menu-tile { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 18px 14px; cursor: pointer; display: flex; flex-direction: column; gap: 8px; transition: transform 0.1s; min-height: 90px; }
+.menu-tile:active { transform: scale(0.97); }
+.menu-tile .icon { width: 36px; height: 36px; background: var(--accent-soft); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+.menu-tile .label { font-family: 'Fraunces', serif; font-weight: 600; font-size: 15px; }
+.menu-tile .sub { font-size: 11px; color: var(--ink-soft); }
+
+/* Breadcrumbs */
+.breadcrumbs { font-size: 12px; color: var(--ink-soft); margin-bottom: 8px; }
+.breadcrumbs .sep { margin: 0 4px; color: var(--border); }
+</style>
+</head>
+<body>
+<div id="app">
+  <header class="header" id="header"></header>
+  <div id="backNav"></div>
+  <div class="content" id="content"></div>
+  <button class="fab" id="fab" onclick="onFabClick()" style="display:none">+</button>
+  <nav class="nav" id="nav"></nav>
+</div>
+
+<!-- Modaalit luodaan dynaamisesti -->
+<div class="modal" id="modal"><div class="modal-sheet" id="modalSheet"></div></div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ============================================================
+// PWA
+// ============================================================
+const manifest = {
+  name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
+  start_url: './', display: 'standalone', orientation: 'portrait',
+  background_color: '#f5f1e8', theme_color: '#1a3d2e',
+  icons: [
+    { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="%231a3d2e"/><path d="M96 42 L150 84 L150 146 L42 146 L42 84 Z" fill="none" stroke="%23c4622d" stroke-width="10" stroke-linejoin="round"/><circle cx="96" cy="112" r="12" fill="%23c4622d"/></svg>', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+    { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="%231a3d2e"/><path d="M256 112 L400 224 L400 388 L112 388 L112 224 Z" fill="none" stroke="%23c4622d" stroke-width="26" stroke-linejoin="round"/><circle cx="256" cy="296" r="32" fill="%23c4622d"/></svg>', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }
+  ]
+};
+document.getElementById('manifestLink').href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
+async function installApp() {
+  if (!deferredPrompt) { toast('Asennus ei juuri nyt mahdollinen'); return; }
+  deferredPrompt.prompt();
+  const { outcome } = await deferredPrompt.userChoice;
+  deferredPrompt = null;
+  if (outcome === 'accepted') toast('Asennettu kotinäytölle');
+}
+
+// ============================================================
+// IndexedDB — koko datamalli
+// ============================================================
+const DB_NAME = 'taloni';
+const DB_VERSION = 1;
+let db = null;
+
+const STORES = ['properties', 'spaces', 'devices', 'maintenanceItems', 'maintenanceLogs',
+                'journalEntries', 'projects', 'documents', 'contacts', 'meters', 'meterReadings', 'settings'];
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(DB_NAME, DB_VERSION);
+    req.onupgradeneeded = (e) => {
+      const db = e.target.result;
+      // properties: id, name, address, type, purchased, notes, created, updated
+      if (!db.objectStoreNames.contains('properties')) db.createObjectStore('properties', { keyPath: 'id' });
+      // spaces: id, propertyId, parentId, name, type (rakennus/huone/ulkoalue/muu), notes, created, updated
+      if (!db.objectStoreNames.contains('spaces')) {
+        const s = db.createObjectStore('spaces', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+        s.createIndex('parentId', 'parentId');
+      }
+      // devices: id, propertyId, spaceId, name, manufacturer, model, serial, purchased, warrantyEnd, price, notes
+      if (!db.objectStoreNames.contains('devices')) {
+        const s = db.createObjectStore('devices', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+        s.createIndex('spaceId', 'spaceId');
+      }
+      // maintenanceItems: id, propertyId, spaceId, deviceId (opt), name, category, interval, intervalUnit, lastDate, nextDate, notes
+      if (!db.objectStoreNames.contains('maintenanceItems')) {
+        const s = db.createObjectStore('maintenanceItems', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+        s.createIndex('spaceId', 'spaceId');
+        s.createIndex('deviceId', 'deviceId');
+        s.createIndex('nextDate', 'nextDate');
+      }
+      // maintenanceLogs: id, itemId (or deviceId), date, what, cost, by, photos
+      if (!db.objectStoreNames.contains('maintenanceLogs')) {
+        const s = db.createObjectStore('maintenanceLogs', { keyPath: 'id' });
+        s.createIndex('itemId', 'itemId');
+        s.createIndex('deviceId', 'deviceId');
+      }
+      // journalEntries: id, propertyId, spaceId, projectId (opt), date, title, text, photos, cost
+      if (!db.objectStoreNames.contains('journalEntries')) {
+        const s = db.createObjectStore('journalEntries', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+        s.createIndex('spaceId', 'spaceId');
+        s.createIndex('projectId', 'projectId');
+      }
+      // projects: id, propertyId, spaceId, title, description, startDate, endDate, status
+      if (!db.objectStoreNames.contains('projects')) {
+        const s = db.createObjectStore('projects', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+      }
+      // documents: id, title, category, propertyId, spaceId, deviceId, itemId, projectId, fileName, mimeType, size, blob, notes
+      if (!db.objectStoreNames.contains('documents')) {
+        const s = db.createObjectStore('documents', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+        s.createIndex('spaceId', 'spaceId');
+        s.createIndex('deviceId', 'deviceId');
+      }
+      // contacts: id, propertyId, name, role, phone, email, notes
+      if (!db.objectStoreNames.contains('contacts')) {
+        const s = db.createObjectStore('contacts', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+      }
+      // meters: id, propertyId, name, unit, notes
+      if (!db.objectStoreNames.contains('meters')) {
+        const s = db.createObjectStore('meters', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+      }
+      // meterReadings: id, meterId, date, value, cost, notes
+      if (!db.objectStoreNames.contains('meterReadings')) {
+        const s = db.createObjectStore('meterReadings', { keyPath: 'id' });
+        s.createIndex('meterId', 'meterId');
+      }
+      // settings: key, value
+      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+const tx = (s, m='readonly') => db.transaction(s, m).objectStore(s);
+const dbPut = (s, o) => new Promise((r, j) => { o.updated = Date.now(); const x = tx(s,'readwrite').put(o); x.onsuccess = () => r(o); x.onerror = () => j(x.error); });
+const dbGet = (s, k) => new Promise((r, j) => { const x = tx(s).get(k); x.onsuccess = () => r(x.result); x.onerror = () => j(x.error); });
+const dbAll = (s) => new Promise((r, j) => { const x = tx(s).getAll(); x.onsuccess = () => r(x.result); x.onerror = () => j(x.error); });
+const dbDel = (s, k) => new Promise((r, j) => { const x = tx(s,'readwrite').delete(k); x.onsuccess = () => r(); x.onerror = () => j(x.error); });
+const dbClear = (s) => new Promise((r, j) => { const x = tx(s,'readwrite').clear(); x.onsuccess = () => r(); x.onerror = () => j(x.error); });
+
+// Indeksoidut haut
+async function dbWhere(store, indexName, value) {
+  return new Promise((res, rej) => {
+    const store2 = tx(store);
+    const idx = store2.index(indexName);
+    const r = idx.getAll(value);
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+}
+
+// ============================================================
+// Apurit
+// ============================================================
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+const today = () => new Date().toISOString().slice(0, 10);
+const fmtDate = iso => !iso ? '–' : new Date(iso).toLocaleDateString('fi-FI', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDateShort = iso => !iso ? '–' : new Date(iso).toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' });
+const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' kB' : (b/1048576).toFixed(1) + ' MB';
+function daysUntil(iso) {
+  if (!iso) return null;
+  const d = new Date(iso); d.setHours(0,0,0,0);
+  const t = new Date(); t.setHours(0,0,0,0);
+  return Math.round((d - t) / 86400000);
+}
+function calcNextDate(lastDate, interval, unit) {
+  if (!lastDate || !interval) return null;
+  const d = new Date(lastDate);
+  if (unit === 'days') d.setDate(d.getDate() + Number(interval));
+  if (unit === 'months') d.setMonth(d.getMonth() + Number(interval));
+  if (unit === 'years') d.setFullYear(d.getFullYear() + Number(interval));
+  return d.toISOString().slice(0, 10);
+}
+function toast(msg, ms = 2200) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), ms);
+}
+const escapeHtml = s => s == null ? '' : String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+async function compressImage(file, maxWidth = 1600, quality = 0.82) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      img.onload = () => {
+        const scale = Math.min(1, maxWidth / img.width);
+        const canvas = document.createElement('canvas');
+        canvas.width = img.width * scale; canvas.height = img.height * scale;
+        canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+        canvas.toBlob((blob) => resolve(blob), 'image/jpeg', quality);
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+const SPACE_TYPE_ICON = {
+  'rakennus': '⌂', 'huone': '◫', 'keittiö': '🍴', 'kylpyhuone': '◉',
+  'sauna': '◈', 'autotalli': '▣', 'varasto': '▦', 'piha': '✿',
+  'terassi': '◇', 'muu': '◇'
+};
+const SPACE_TYPES = ['rakennus','huone','keittiö','kylpyhuone','sauna','autotalli','varasto','piha','terassi','muu'];
+const CATEGORY_ICON = {'LVI':'◉','Sähkö':'⚡','Lämmitys':'◈','Piha':'✿','Julkisivu':'◫','Sisätilat':'⌂','Laitteet':'▣','Muu':'◇'};
+const PROPERTY_TYPES = ['Omakotitalo','Loma-asunto','Kerrostalo','Rivitalo','Muu'];
+
+// ============================================================
+// Sovelluksen tila ja reititys
+// ============================================================
+let state = {
+  currentPropertyId: null,
+  currentTab: 'home',
+  // Navigointipino sisäisille näkymille
+  stack: [],  // [{ view: 'space', id: 'xxx' }, ...]
+  // Lomakkeiden työtila
+  formPhotos: [],
+  formDocFile: null,
+};
+
+function pushView(view) { state.stack.push(view); render(); }
+function popView() { state.stack.pop(); render(); }
+function clearStack() { state.stack = []; }
+
+// ============================================================
+// Renderöinti (yksi master render -funktio)
+// ============================================================
+async function render() {
+  await renderHeader();
+  await renderBackNav();
+  await renderNav();
+  await renderContent();
+}
+
+async function renderHeader() {
+  const header = document.getElementById('header');
+  const properties = await dbAll('properties');
+  const current = state.currentPropertyId ? properties.find(p => p.id === state.currentPropertyId) : null;
+
+  if (!current) {
+    header.innerHTML = `
+      <div class="header-top">
+        <div class="brand">Taloni<span class="accent">.</span></div>
+      </div>
+      <div class="property-name">Tervetuloa</div>
+      <div class="property-meta">Lisää ensimmäinen kiinteistösi aloittaaksesi</div>`;
+    return;
+  }
+  header.innerHTML = `
+    <div class="header-top">
+      <div class="brand">Taloni<span class="accent">.</span></div>
+      ${properties.length > 1 ? `<button class="property-switcher" onclick="openPropertyPicker()">Vaihda <span style="opacity:0.7">›</span></button>` : ''}
+    </div>
+    <div class="property-name">${escapeHtml(current.name)}</div>
+    <div class="property-meta">${escapeHtml(current.address || PROPERTY_TYPES[0])}</div>`;
+}
+
+async function renderBackNav() {
+  const el = document.getElementById('backNav');
+  if (state.stack.length === 0) { el.innerHTML = ''; return; }
+  const top = state.stack[state.stack.length - 1];
+  let label = 'Takaisin';
+  if (top.view === 'space') {
+    const s = await dbGet('spaces', top.id);
+    label = s ? `Takaisin: ${s.name}` : 'Takaisin';
+    // Jos useita kerroksia, näytä murupolku
+  }
+  el.innerHTML = `<div class="back-nav" onclick="popView()"><span class="back-nav-arrow">‹</span><span class="back-nav-text">Takaisin</span></div>`;
+}
+
+async function renderNav() {
+  const nav = document.getElementById('nav');
+  if (!state.currentPropertyId) { nav.innerHTML = ''; return; }
+  const tabs = [
+    { id: 'home', label: 'Etusivu', icon: '⌂' },
+    { id: 'spaces', label: 'Tilat', icon: '▦' },
+    { id: 'journal', label: 'Päiväkirja', icon: '◷' },
+    { id: 'more', label: 'Lisää', icon: '⋯' }
+  ];
+  nav.innerHTML = `<div class="nav-inner">${tabs.map(t => `
+    <button class="nav-btn ${state.currentTab === t.id && state.stack.length === 0 ? 'active' : ''}" onclick="switchTab('${t.id}')">
+      <span class="icon">${t.icon}</span>${t.label}
+    </button>`).join('')}</div>`;
+}
+
+function switchTab(tab) {
+  state.currentTab = tab;
+  clearStack();
+  render();
+}
+
+async function renderContent() {
+  const c = document.getElementById('content');
+  const fab = document.getElementById('fab');
+  fab.style.display = 'none';
+
+  if (!state.currentPropertyId) {
+    await renderPropertyPicker();
+    return;
+  }
+
+  // Jos navigointipinossa on jotain, näytä se
+  if (state.stack.length > 0) {
+    const top = state.stack[state.stack.length - 1];
+    if (top.view === 'space') return renderSpaceView(top.id);
+    if (top.view === 'maintenanceList') return renderMaintenanceList();
+    if (top.view === 'documentsList') return renderDocumentsList();
+    if (top.view === 'devicesList') return renderDevicesList();
+    if (top.view === 'contactsList') return renderContactsList();
+    if (top.view === 'maintenanceItem') return renderMaintenanceItemDetail(top.id);
+    if (top.view === 'device') return renderDeviceDetail(top.id);
+    if (top.view === 'document') return renderDocumentDetail(top.id);
+  }
+
+  // Varsinaiset välilehdet
+  if (state.currentTab === 'home') return renderHome();
+  if (state.currentTab === 'spaces') return renderSpaces();
+  if (state.currentTab === 'journal') return renderJournal();
+  if (state.currentTab === 'more') return renderMore();
+}
+
+// ============================================================
+// Kiinteistöjen valinta
+// ============================================================
+async function renderPropertyPicker() {
+  const c = document.getElementById('content');
+  const properties = await dbAll('properties');
+
+  c.innerHTML = `
+    <div class="section-title">Kiinteistöt</div>
+    ${properties.map(p => `
+      <div class="property-hero" onclick="selectProperty('${p.id}')">
+        <h3>${escapeHtml(p.name)}</h3>
+        <div class="meta">${escapeHtml(p.address || p.type || '')}</div>
+      </div>
+    `).join('')}
+    <div class="property-add" onclick="openAddPropertyModal()">
+      <div class="label">+ Lisää kiinteistö</div>
+    </div>`;
+}
+
+function openPropertyPicker() {
+  state.currentPropertyId = null;
+  clearStack();
+  render();
+}
+
+async function selectProperty(id) {
+  state.currentPropertyId = id;
+  state.currentTab = 'home';
+  clearStack();
+  await dbPut('settings', { key: 'lastProperty', value: id });
+  render();
+}
+
+// ============================================================
+// Etusivu
+// ============================================================
+async function renderHome() {
+  const c = document.getElementById('content');
+  const items = (await dbWhere('maintenanceItems', 'propertyId', state.currentPropertyId));
+  items.sort((a, b) => !a.nextDate ? 1 : !b.nextDate ? -1 : a.nextDate.localeCompare(b.nextDate));
+
+  const overdue = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d < 0; });
+  const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= 30; });
+
+  const projects = (await dbWhere('projects', 'propertyId', state.currentPropertyId)).filter(p => p.status === 'käynnissä');
+
+  document.getElementById('fab').style.display = 'flex';
+
+  c.innerHTML = `
+    <div class="stats">
+      <div class="stat"><div class="stat-num danger">${overdue.length}</div><div class="stat-label">Myöhässä</div></div>
+      <div class="stat"><div class="stat-num warn">${soon.length}</div><div class="stat-label">Tulossa</div></div>
+      <div class="stat"><div class="stat-num">${items.length}</div><div class="stat-label">Yhteensä</div></div>
+    </div>
+
+    ${(overdue.length + soon.length) > 0 ? `
+      <div class="section-title">Huomio nyt</div>
+      ${[...overdue, ...soon].map(it => renderMaintenanceCard(it)).join('')}
+    ` : items.length > 0 ? `
+      <div class="empty">
+        <div class="empty-icon">✓</div>
+        <div class="empty-title">Kaikki ajan tasalla</div>
+        <div>Seuraavat huollot kaukana tulevaisuudessa</div>
+      </div>
+    ` : `
+      <div class="empty">
+        <div class="empty-icon">◔</div>
+        <div class="empty-title">Tervetuloa Taloniin</div>
+        <div>Aloita lisäämällä ensimmäinen huoltokohde tai tila</div>
+      </div>
+    `}
+
+    ${projects.length > 0 ? `
+      <div class="section-title">Käynnissä olevat projektit</div>
+      ${projects.map(p => `
+        <div class="card" onclick="toast('Projektit tulossa v0.4')">
+          <div class="card-row">
+            <div class="card-icon">◐</div>
+            <div class="card-main">
+              <div class="card-title">${escapeHtml(p.title)}</div>
+              <div class="card-meta"><span>Aloitettu ${fmtDate(p.startDate)}</span></div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    ` : ''}
+
+    <div class="section-title">Pikalinkit</div>
+    <div class="menu-grid">
+      <div class="menu-tile" onclick="pushView({view:'maintenanceList'})">
+        <div class="icon">⚒</div><div class="label">Kaikki huollot</div><div class="sub">${items.length} kohdetta</div>
+      </div>
+      <div class="menu-tile" onclick="pushView({view:'documentsList'})">
+        <div class="icon">▤</div><div class="label">Asiakirjat</div><div class="sub">PDF:t, kuvat</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderMaintenanceCard(item) {
+  const days = daysUntil(item.nextDate);
+  let badge = '', cls = '';
+  if (days !== null) {
+    if (days < 0) { badge = `<span class="badge danger">${Math.abs(days)} pv myöhässä</span>`; cls = 'overdue'; }
+    else if (days <= 30) { badge = `<span class="badge warn">${days} pv</span>`; cls = 'soon'; }
+    else badge = `<span class="badge ok">${days} pv</span>`;
+  }
+  return `<div class="card ${cls}" onclick="pushView({view:'maintenanceItem', id:'${item.id}'})">
+    <div class="card-row">
+      <div class="card-icon">${CATEGORY_ICON[item.category] || '◇'}</div>
+      <div class="card-main">
+        <div class="card-title">${escapeHtml(item.name)}</div>
+        <div class="card-meta">
+          <span>${escapeHtml(item.category)}</span>
+          <span class="dot">·</span>
+          <span>Seuraava ${fmtDateShort(item.nextDate)}</span>
+        </div>
+      </div>
+      ${badge}
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Tilat-välilehti (kiinteistön juuritilat)
+// ============================================================
+async function renderSpaces() {
+  const c = document.getElementById('content');
+  const spaces = (await dbWhere('spaces', 'propertyId', state.currentPropertyId));
+  const rootSpaces = spaces.filter(s => !s.parentId);
+  document.getElementById('fab').style.display = 'flex';
+
+  if (rootSpaces.length === 0) {
+    c.innerHTML = `<div class="empty">
+      <div class="empty-icon">▦</div>
+      <div class="empty-title">Ei tiloja</div>
+      <div>Lisää piha, päärakennus, sauna, autotalli...</div>
+      <div class="empty-action"><button class="btn btn-primary" onclick="openAddSpaceModal(null)" style="max-width: 280px; margin: 0 auto;">+ Lisää ensimmäinen tila</button></div>
+    </div>`;
+    return;
+  }
+
+  c.innerHTML = `<div class="section-title">Tilat<span class="action" onclick="openAddSpaceModal(null)">+ Lisää</span></div>${
+    rootSpaces.map(s => renderSpaceListItem(s, spaces)).join('')
+  }`;
+}
+
+function renderSpaceListItem(space, allSpaces) {
+  const children = allSpaces.filter(s => s.parentId === space.id);
+  return `<div class="list-item" onclick="pushView({view:'space', id:'${space.id}'})">
+    <div class="icon">${SPACE_TYPE_ICON[space.type] || '◇'}</div>
+    <div class="text">
+      <div class="name">${escapeHtml(space.name)}</div>
+      <div class="sub">${space.type || 'tila'}${children.length > 0 ? ` · ${children.length} alatilaa` : ''}</div>
+    </div>
+    <div class="arrow">›</div>
+  </div>`;
+}
+
+// ============================================================
+// Tilan näkymä
+// ============================================================
+async function renderSpaceView(spaceId) {
+  const c = document.getElementById('content');
+  const space = await dbGet('spaces', spaceId);
+  if (!space) { popView(); return; }
+
+  const allSpaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
+  const children = allSpaces.filter(s => s.parentId === spaceId);
+  const devices = await dbWhere('devices', 'spaceId', spaceId);
+  const items = await dbWhere('maintenanceItems', 'spaceId', spaceId);
+  const docs = await dbWhere('documents', 'spaceId', spaceId);
+  const journals = await dbWhere('journalEntries', 'spaceId', spaceId);
+
+  // Murupolku
+  const breadcrumbs = await buildBreadcrumbs(space);
+
+  document.getElementById('fab').style.display = 'flex';
+
+  c.innerHTML = `
+    <div class="breadcrumbs">${breadcrumbs.join('<span class="sep">›</span>')}</div>
+    <div class="detail-hero">
+      <h2>${escapeHtml(space.name)}</h2>
+      <div style="font-size: 13px; color: var(--ink-soft);">${SPACE_TYPE_ICON[space.type] || '◇'} ${escapeHtml(space.type || 'tila')}</div>
+      ${space.notes ? `<div style="margin-top: 12px; font-size: 14px;">${escapeHtml(space.notes)}</div>` : ''}
+    </div>
+
+    ${children.length > 0 ? `
+      <div class="section-title">Alatilat<span class="action" onclick="openAddSpaceModal('${spaceId}')">+ Lisää</span></div>
+      ${children.map(s => renderSpaceListItem(s, allSpaces)).join('')}
+    ` : `<div class="section-title">Alatilat<span class="action" onclick="openAddSpaceModal('${spaceId}')">+ Lisää</span></div>
+      <div style="color: var(--ink-soft); font-size: 13px; padding: 8px 0;">Ei alatiloja</div>`}
+
+    <div class="section-title">Laitteet<span class="action" onclick="toast('Laitteet tulossa v0.4')">+ Lisää</span></div>
+    ${devices.length === 0 ? `<div style="color: var(--ink-soft); font-size: 13px; padding: 8px 0;">Ei laitteita</div>` :
+      devices.map(d => `<div class="list-item" onclick="pushView({view:'device', id:'${d.id}'})">
+        <div class="icon">▣</div>
+        <div class="text"><div class="name">${escapeHtml(d.name)}</div><div class="sub">${escapeHtml(d.manufacturer || '')} ${escapeHtml(d.model || '')}</div></div>
+        <div class="arrow">›</div>
+      </div>`).join('')}
+
+    <div class="section-title">Huollot<span class="action" onclick="openAddMaintenanceModal('${spaceId}')">+ Lisää</span></div>
+    ${items.length === 0 ? `<div style="color: var(--ink-soft); font-size: 13px; padding: 8px 0;">Ei huoltokohteita</div>` :
+      items.map(it => renderMaintenanceCard(it)).join('')}
+
+    <div class="section-title">Asiakirjat<span class="action" onclick="openAddDocModal('${spaceId}')">+ Lisää</span></div>
+    ${docs.length === 0 ? `<div style="color: var(--ink-soft); font-size: 13px; padding: 8px 0;">Ei asiakirjoja</div>` :
+      docs.map(d => renderDocCard(d)).join('')}
+
+    <div class="section-title">Päiväkirja<span class="action" onclick="toast('Päiväkirja tulossa v0.4')">+ Lisää</span></div>
+    ${journals.length === 0 ? `<div style="color: var(--ink-soft); font-size: 13px; padding: 8px 0;">Ei merkintöjä</div>` :
+      journals.map(j => `<div class="history-item">
+        <div class="history-date">${fmtDateShort(j.date)}</div>
+        <div class="history-content"><div class="what">${escapeHtml(j.title || j.text?.slice(0,60))}</div></div>
+      </div>`).join('')}
+
+    <div class="btn-row" style="margin-top: 24px;">
+      <button class="btn btn-ghost" onclick="openEditSpaceModal('${spaceId}')">Muokkaa tilaa</button>
+      <button class="btn btn-danger" onclick="deleteSpace('${spaceId}')">Poista tila</button>
+    </div>
+  `;
+}
+
+async function buildBreadcrumbs(space) {
+  const property = await dbGet('properties', space.propertyId);
+  const crumbs = [escapeHtml(property?.name || 'Kiinteistö')];
+  let current = space;
+  const chain = [];
+  while (current.parentId) {
+    const parent = await dbGet('spaces', current.parentId);
+    if (!parent) break;
+    chain.unshift(parent);
+    current = parent;
+  }
+  chain.forEach(s => crumbs.push(escapeHtml(s.name)));
+  crumbs.push(`<strong style="color: var(--ink);">${escapeHtml(space.name)}</strong>`);
+  return crumbs;
+}
+
+// ============================================================
+// Päiväkirja-välilehti (placeholder)
+// ============================================================
+async function renderJournal() {
+  const c = document.getElementById('content');
+  document.getElementById('fab').style.display = 'flex';
+  c.innerHTML = `<div class="section-title">Päiväkirja</div>
+    <div class="empty">
+      <div class="empty-icon">◷</div>
+      <div class="empty-title">Päiväkirja tulossa v0.4</div>
+      <div>Voit kirjoittaa merkintöjä projekteista ja töistä kuvineen ja kustannuksineen.</div>
+    </div>`;
+}
+
+// ============================================================
+// Lisää-välilehti (valikko)
+// ============================================================
+async function renderMore() {
+  const c = document.getElementById('content');
+  const items = await dbWhere('maintenanceItems', 'propertyId', state.currentPropertyId);
+  const docs = await dbWhere('documents', 'propertyId', state.currentPropertyId);
+  const devices = await dbWhere('devices', 'propertyId', state.currentPropertyId);
+  const contacts = await dbWhere('contacts', 'propertyId', state.currentPropertyId);
+
+  c.innerHTML = `
+    <div class="section-title">Kootut näkymät</div>
+    <div class="menu-grid">
+      <div class="menu-tile" onclick="pushView({view:'maintenanceList'})">
+        <div class="icon">⚒</div><div class="label">Kaikki huollot</div><div class="sub">${items.length} kohdetta</div>
+      </div>
+      <div class="menu-tile" onclick="pushView({view:'devicesList'})">
+        <div class="icon">▣</div><div class="label">Kaikki laitteet</div><div class="sub">${devices.length} laitetta</div>
+      </div>
+      <div class="menu-tile" onclick="pushView({view:'documentsList'})">
+        <div class="icon">▤</div><div class="label">Asiakirjat</div><div class="sub">${docs.length} tiedostoa</div>
+      </div>
+      <div class="menu-tile" onclick="pushView({view:'contactsList'})">
+        <div class="icon">☎</div><div class="label">Yhteystiedot</div><div class="sub">${contacts.length} henkilöä</div>
+      </div>
+      <div class="menu-tile" onclick="toast('Galleria tulossa v0.5')">
+        <div class="icon">◫</div><div class="label">Galleria</div><div class="sub">Tulossa</div>
+      </div>
+      <div class="menu-tile" onclick="toast('Kulutusseuranta tulossa v0.5')">
+        <div class="icon">◔</div><div class="label">Kulutus</div><div class="sub">Tulossa</div>
+      </div>
+    </div>
+
+    <div class="section-title">Kiinteistö</div>
+    <div class="setting-row" onclick="openEditPropertyModal()">
+      <div><div class="label">Muokkaa kiinteistön tietoja</div></div>
+      <div>›</div>
+    </div>
+    <div class="setting-row" onclick="openPropertyPicker()">
+      <div><div class="label">Vaihda kiinteistöä</div></div>
+      <div>›</div>
+    </div>
+
+    <div class="section-title">Sovellus</div>
+    <div class="setting-row" onclick="openSettingsModal()">
+      <div><div class="label">Asetukset ja varmuuskopio</div></div>
+      <div>›</div>
+    </div>
+    <div class="setting-row" onclick="installApp()" style="cursor: pointer;">
+      <div><div class="label">Asenna kotinäytölle</div><div class="value">PWA-asennus</div></div>
+      <div>›</div>
+    </div>
+    <div class="setting-row" style="cursor: default;">
+      <div><div class="label">Versio</div><div class="value">0.3 — Touko 2026</div></div>
+    </div>
+  `;
+}
+
+// ============================================================
+// Kootut näkymät
+// ============================================================
+async function renderMaintenanceList() {
+  const c = document.getElementById('content');
+  const items = await dbWhere('maintenanceItems', 'propertyId', state.currentPropertyId);
+  items.sort((a, b) => !a.nextDate ? 1 : !b.nextDate ? -1 : a.nextDate.localeCompare(b.nextDate));
+  document.getElementById('fab').style.display = 'flex';
+  c.innerHTML = `<div class="section-title">Kaikki huollot</div>${
+    items.length === 0 ? `<div class="empty"><div class="empty-icon">⚒</div><div class="empty-title">Ei huoltoja</div></div>` :
+    items.map(i => renderMaintenanceCard(i)).join('')
+  }`;
+}
+
+async function renderDevicesList() {
+  const c = document.getElementById('content');
+  const devices = await dbWhere('devices', 'propertyId', state.currentPropertyId);
+  c.innerHTML = `<div class="section-title">Kaikki laitteet</div>
+    <div class="empty">
+      <div class="empty-icon">▣</div>
+      <div class="empty-title">Laitteet tulossa v0.4</div>
+      <div>Tähän tulee laitteiden hallinta (sarjanumerot, takuut, käyttöohjeet)</div>
+    </div>`;
+}
+
+async function renderContactsList() {
+  const c = document.getElementById('content');
+  c.innerHTML = `<div class="section-title">Yhteystiedot</div>
+    <div class="empty">
+      <div class="empty-icon">☎</div>
+      <div class="empty-title">Yhteystiedot tulossa v0.5</div>
+    </div>`;
+}
+
+async function renderDocumentsList() {
+  const c = document.getElementById('content');
+  const docs = await dbWhere('documents', 'propertyId', state.currentPropertyId);
+  docs.sort((a, b) => b.created - a.created);
+  document.getElementById('fab').style.display = 'flex';
+  c.innerHTML = `<div class="section-title">Asiakirjat</div>${
+    docs.length === 0 ? `<div class="empty"><div class="empty-icon">▤</div><div class="empty-title">Ei asiakirjoja</div></div>` :
+    docs.map(d => renderDocCard(d)).join('')
+  }`;
+}
+
+function renderDocCard(d) {
+  const ext = (d.fileName || '').split('.').pop().toUpperCase().slice(0, 3) || 'TXT';
+  const isPdf = (d.mimeType || '').includes('pdf');
+  const isImg = (d.mimeType || '').startsWith('image/');
+  const iconClass = isPdf ? 'pdf' : isImg ? 'img' : '';
+  return `<div class="card" onclick="pushView({view:'document', id:'${d.id}'})">
+    <div class="doc-card">
+      <div class="doc-icon ${iconClass}">${ext}</div>
+      <div class="card-main">
+        <div class="card-title">${escapeHtml(d.title || d.fileName)}</div>
+        <div class="card-meta"><span>${escapeHtml(d.category)}</span><span class="dot">·</span><span>${fmtSize(d.size)}</span></div>
+      </div>
+    </div>
+  </div>`;
+}
+
+// ============================================================
+// Huoltokohteen detail
+// ============================================================
+async function renderMaintenanceItemDetail(id) {
+  const c = document.getElementById('content');
+  const item = await dbGet('maintenanceItems', id);
+  if (!item) { popView(); return; }
+  const logs = await dbWhere('maintenanceLogs', 'itemId', id);
+  logs.sort((a, b) => b.date.localeCompare(a.date));
+  const space = item.spaceId ? await dbGet('spaces', item.spaceId) : null;
+  const days = daysUntil(item.nextDate);
+  let statusBadge = '';
+  if (days !== null) {
+    if (days < 0) statusBadge = `<span class="badge danger">${Math.abs(days)} pv myöhässä</span>`;
+    else if (days <= 30) statusBadge = `<span class="badge warn">${days} pv</span>`;
+    else statusBadge = `<span class="badge ok">${days} pv</span>`;
+  }
+
+  c.innerHTML = `
+    <div class="detail-hero">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 12px;">
+        <div>
+          <h2>${escapeHtml(item.name)}</h2>
+          <div style="font-size: 13px; color: var(--ink-soft);">${CATEGORY_ICON[item.category] || '◇'} ${escapeHtml(item.category)}${space ? ` · ${escapeHtml(space.name)}` : ''}</div>
+        </div>
+        ${statusBadge}
+      </div>
+      <div class="detail-meta-grid">
+        <div class="detail-meta-item"><div class="label">Edellinen</div><div class="value">${fmtDate(item.lastDate)}</div></div>
+        <div class="detail-meta-item"><div class="label">Seuraava</div><div class="value">${fmtDate(item.nextDate)}</div></div>
+        <div class="detail-meta-item"><div class="label">Huoltoväli</div><div class="value">${item.interval ? item.interval + ' ' + ({months:'kk',years:'v',days:'pv'}[item.intervalUnit]) : '–'}</div></div>
+        <div class="detail-meta-item"><div class="label">Merkintöjä</div><div class="value">${logs.length}</div></div>
+      </div>
+    </div>
+    ${item.notes ? `<div class="card" style="cursor:default; margin-bottom: 16px;"><div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin-bottom: 6px;">Muistiinpanot</div><div>${escapeHtml(item.notes)}</div></div>` : ''}
+
+    <button class="btn btn-primary" onclick="openLogModal('${id}')" style="margin-bottom: 8px;">✓ Merkitse huolto tehdyksi</button>
+
+    <div class="section-title">Historia</div>
+    ${logs.length === 0 ? '<div style="color: var(--ink-soft); font-size: 14px; text-align: center; padding: 16px;">Ei vielä merkintöjä</div>' :
+      logs.map(l => `<div class="history-item">
+        <div class="history-date">${fmtDateShort(l.date)}</div>
+        <div class="history-content">
+          <div class="what">${escapeHtml(l.what || 'Huolto tehty')}</div>
+          ${l.cost || l.by ? `<div class="notes">${l.cost ? l.cost + ' € ' : ''}${escapeHtml(l.by||'')}</div>` : ''}
+          ${l.photos && l.photos.length > 0 ? `<div class="photo-grid" style="margin-top: 8px;">${l.photos.map(p => `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"></div>`).join('')}</div>` : ''}
+        </div>
+      </div>`).join('')}
+
+    <div class="btn-row" style="margin-top: 24px;">
+      <button class="btn btn-ghost" onclick="openEditMaintenanceModal('${id}')">Muokkaa</button>
+      <button class="btn btn-danger" onclick="deleteMaintenanceItem('${id}')">Poista</button>
+    </div>`;
+}
+
+async function renderDeviceDetail(id) {
+  const c = document.getElementById('content');
+  c.innerHTML = `<div class="empty"><div class="empty-icon">▣</div><div class="empty-title">Laitteen tiedot tulossa v0.4</div></div>`;
+}
+
+async function renderDocumentDetail(id) {
+  const c = document.getElementById('content');
+  const d = await dbGet('documents', id);
+  if (!d) { popView(); return; }
+  const isPdf = (d.mimeType || '').includes('pdf');
+  const isImg = (d.mimeType || '').startsWith('image/');
+  let preview = '';
+  if (isImg) preview = `<img src="${URL.createObjectURL(d.blob)}" style="width: 100%; border-radius: 12px; margin-bottom: 16px;">`;
+  else if (isPdf) preview = `<div style="background: var(--accent-soft); padding: 32px; text-align: center; border-radius: 12px; margin-bottom: 16px; font-family: 'Fraunces', serif; font-size: 32px; color: var(--accent);">PDF</div>`;
+  else preview = `<div style="background: var(--accent-soft); padding: 32px; text-align: center; border-radius: 12px; margin-bottom: 16px; font-family: 'Fraunces', serif; font-size: 32px;">${(d.fileName||'').split('.').pop().toUpperCase().slice(0,4) || 'FILE'}</div>`;
+
+  c.innerHTML = `
+    <h2 style="font-family: 'Fraunces', serif; font-size: 24px; font-weight: 600; margin-bottom: 4px;">${escapeHtml(d.title)}</h2>
+    <div style="font-size: 13px; color: var(--ink-soft); margin-bottom: 16px;">${escapeHtml(d.category)} · ${fmtSize(d.size)} · ${fmtDate(new Date(d.created).toISOString())}</div>
+    ${preview}
+    ${d.notes ? `<div class="card" style="cursor:default; margin-bottom: 16px;"><div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin-bottom: 6px;">Muistiinpanot</div><div>${escapeHtml(d.notes)}</div></div>` : ''}
+    <button class="btn btn-primary" onclick="openDoc('${id}')" style="margin-bottom: 8px;">Avaa tiedosto</button>
+    <button class="btn btn-secondary" onclick="downloadDoc('${id}')" style="margin-bottom: 8px;">Lataa puhelimeen</button>
+    <div class="btn-row" style="margin-top: 16px;">
+      <button class="btn btn-ghost" onclick="popView()">Sulje</button>
+      <button class="btn btn-danger" onclick="deleteDoc('${id}')">Poista</button>
+    </div>`;
+}
+
+async function openDoc(id) {
+  const d = await dbGet('documents', id);
+  window.open(URL.createObjectURL(d.blob), '_blank');
+}
+async function downloadDoc(id) {
+  const d = await dbGet('documents', id);
+  const url = URL.createObjectURL(d.blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = d.fileName || 'tiedosto'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+async function deleteDoc(id) {
+  if (!confirm('Poistetaanko asiakirja?')) return;
+  await dbDel('documents', id);
+  popView();
+  toast('Poistettu');
+}
+
+// ============================================================
+// FAB-toiminta (riippuu nykyisestä näkymästä)
+// ============================================================
+function onFabClick() {
+  // Onko tilan sisällä?
+  if (state.stack.length > 0) {
+    const top = state.stack[state.stack.length - 1];
+    if (top.view === 'space') {
+      // Tarjoa valinta
+      openAddInSpaceModal(top.id);
+      return;
+    }
+    if (top.view === 'maintenanceList') { openAddMaintenanceModal(null); return; }
+    if (top.view === 'documentsList') { openAddDocModal(null); return; }
+  }
+  // Välilehdet
+  if (state.currentTab === 'home') { openQuickAddModal(); return; }
+  if (state.currentTab === 'spaces') { openAddSpaceModal(null); return; }
+  if (state.currentTab === 'journal') { toast('Päiväkirja tulossa v0.4'); return; }
+  if (state.currentTab === 'more') { openQuickAddModal(); return; }
+}
+
+// ============================================================
+// Modaalit — yleinen järjestelmä
+// ============================================================
+function openModal(html) {
+  document.getElementById('modalSheet').innerHTML = `<div class="modal-handle"></div>${html}`;
+  document.getElementById('modal').classList.add('active');
+}
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+  state.formPhotos = [];
+  state.formDocFile = null;
+}
+document.getElementById('modal').addEventListener('click', (e) => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+// --- Lisää kiinteistö ---
+function openAddPropertyModal() {
+  openModal(`
+    <div class="modal-title">Uusi kiinteistö</div>
+    <div class="modal-subtitle">Lisää omakotitalo, mökki tai muu kiinteistö</div>
+    <div class="field"><label>Nimi</label><input type="text" id="propName" placeholder="esim. Koti, Mökki, Mäkitie 5"></div>
+    <div class="field"><label>Tyyppi</label><select id="propType">${PROPERTY_TYPES.map(t => `<option>${t}</option>`).join('')}</select></div>
+    <div class="field"><label>Osoite (valinnainen)</label><input type="text" id="propAddress" placeholder="esim. Mäkitie 5, 00100 Helsinki"></div>
+    <div class="field"><label>Muistiinpanot</label><textarea id="propNotes"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveNewProperty()">Tallenna</button>
+    </div>`);
+}
+
+async function saveNewProperty() {
+  const name = document.getElementById('propName').value.trim();
+  if (!name) { toast('Anna nimi'); return; }
+  const prop = {
+    id: uid(), name,
+    type: document.getElementById('propType').value,
+    address: document.getElementById('propAddress').value.trim(),
+    notes: document.getElementById('propNotes').value.trim(),
+    created: Date.now()
+  };
+  await dbPut('properties', prop);
+  closeModal();
+  toast('Kiinteistö lisätty');
+  state.currentPropertyId = prop.id;
+  state.currentTab = 'home';
+  await dbPut('settings', { key: 'lastProperty', value: prop.id });
+  render();
+}
+
+function openEditPropertyModal() {
+  dbGet('properties', state.currentPropertyId).then(prop => {
+    openModal(`
+      <div class="modal-title">Muokkaa kiinteistöä</div>
+      <div class="field"><label>Nimi</label><input type="text" id="propName" value="${escapeHtml(prop.name)}"></div>
+      <div class="field"><label>Tyyppi</label><select id="propType">${PROPERTY_TYPES.map(t => `<option ${t === prop.type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Osoite</label><input type="text" id="propAddress" value="${escapeHtml(prop.address || '')}"></div>
+      <div class="field"><label>Muistiinpanot</label><textarea id="propNotes">${escapeHtml(prop.notes || '')}</textarea></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveEditedProperty('${prop.id}')">Tallenna</button>
+      </div>
+      <div style="margin-top: 12px;">
+        <button class="btn btn-danger" onclick="deleteProperty('${prop.id}')">Poista kiinteistö ja kaikki sen tiedot</button>
+      </div>`);
+  });
+}
+
+async function saveEditedProperty(id) {
+  const prop = await dbGet('properties', id);
+  prop.name = document.getElementById('propName').value.trim();
+  prop.type = document.getElementById('propType').value;
+  prop.address = document.getElementById('propAddress').value.trim();
+  prop.notes = document.getElementById('propNotes').value.trim();
+  await dbPut('properties', prop);
+  closeModal();
+  toast('Tallennettu');
+  render();
+}
+
+async function deleteProperty(id) {
+  if (!confirm('Poistetaanko kiinteistö ja KAIKKI siihen liittyvä data?')) return;
+  if (!confirm('Oletko varma? Tätä ei voi perua.')) return;
+  // Poista kaikki riippuvuudet
+  for (const store of ['spaces', 'devices', 'maintenanceItems', 'journalEntries', 'projects', 'documents', 'contacts', 'meters']) {
+    const items = await dbWhere(store, 'propertyId', id);
+    for (const it of items) await dbDel(store, it.id);
+  }
+  await dbDel('properties', id);
+  closeModal();
+  toast('Poistettu');
+  state.currentPropertyId = null;
+  clearStack();
+  render();
+}
+
+// --- Lisää tila ---
+function openAddSpaceModal(parentId) {
+  openModal(`
+    <div class="modal-title">Uusi tila</div>
+    <div class="modal-subtitle">${parentId ? 'Alatila' : 'Päätason tila kiinteistössä'}</div>
+    <div class="field"><label>Nimi</label><input type="text" id="spaceName" placeholder="esim. Päärakennus, Sauna, Keittiö"></div>
+    <div class="field"><label>Tyyppi</label>
+      <select id="spaceType">${SPACE_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+    </div>
+    <div class="field"><label>Muistiinpanot</label><textarea id="spaceNotes"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveNewSpace(${parentId ? `'${parentId}'` : 'null'})">Tallenna</button>
+    </div>`);
+}
+
+async function saveNewSpace(parentId) {
+  const name = document.getElementById('spaceName').value.trim();
+  if (!name) { toast('Anna nimi'); return; }
+  const space = {
+    id: uid(),
+    propertyId: state.currentPropertyId,
+    parentId: parentId,
+    name,
+    type: document.getElementById('spaceType').value,
+    notes: document.getElementById('spaceNotes').value.trim(),
+    created: Date.now()
+  };
+  await dbPut('spaces', space);
+  closeModal();
+  toast('Tila lisätty');
+  render();
+}
+
+function openEditSpaceModal(id) {
+  dbGet('spaces', id).then(s => {
+    openModal(`
+      <div class="modal-title">Muokkaa tilaa</div>
+      <div class="field"><label>Nimi</label><input type="text" id="spaceName" value="${escapeHtml(s.name)}"></div>
+      <div class="field"><label>Tyyppi</label><select id="spaceType">${SPACE_TYPES.map(t => `<option value="${t}" ${t === s.type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
+      <div class="field"><label>Muistiinpanot</label><textarea id="spaceNotes">${escapeHtml(s.notes || '')}</textarea></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveEditedSpace('${id}')">Tallenna</button>
+      </div>`);
+  });
+}
+
+async function saveEditedSpace(id) {
+  const s = await dbGet('spaces', id);
+  s.name = document.getElementById('spaceName').value.trim();
+  s.type = document.getElementById('spaceType').value;
+  s.notes = document.getElementById('spaceNotes').value.trim();
+  await dbPut('spaces', s);
+  closeModal();
+  toast('Tallennettu');
+  render();
+}
+
+async function deleteSpace(id) {
+  if (!confirm('Poistetaanko tila? Alatilat poistuvat myös. Tiloihin liitetyt huollot/asiakirjat säilyvät mutta menettävät tilan.')) return;
+  // Etsi alatilat rekursiivisesti
+  const allSpaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
+  const toDelete = [id];
+  let i = 0;
+  while (i < toDelete.length) {
+    const children = allSpaces.filter(s => s.parentId === toDelete[i]);
+    children.forEach(c => toDelete.push(c.id));
+    i++;
+  }
+  for (const sid of toDelete) {
+    // Nollaa spaceId-viittaukset
+    for (const store of ['devices', 'maintenanceItems', 'journalEntries', 'documents']) {
+      const items = await dbWhere(store, 'spaceId', sid);
+      for (const it of items) { it.spaceId = null; await dbPut(store, it); }
+    }
+    await dbDel('spaces', sid);
+  }
+  popView();
+  toast('Tila poistettu');
+}
+
+// --- Lisää huoltokohde ---
+function openAddMaintenanceModal(spaceId) {
+  // Hae tilat dropdown:iin
+  dbWhere('spaces', 'propertyId', state.currentPropertyId).then(spaces => {
+    openModal(`
+      <div class="modal-title">Uusi huoltokohde</div>
+      <div class="modal-subtitle">Lisää jotain mitä pitää muistaa huoltaa</div>
+      <div class="field"><label>Nimi</label><input type="text" id="mName" placeholder="esim. Ilmanvaihtosuodatin"></div>
+      <div class="field"><label>Tila</label>
+        <select id="mSpace">
+          <option value="">Ei tilaa</option>
+          ${spaces.map(s => `<option value="${s.id}" ${s.id === spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Kategoria</label>
+        <select id="mCategory">${Object.keys(CATEGORY_ICON).map(k => `<option>${k}</option>`).join('')}</select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Huoltoväli</label><input type="number" id="mInterval" placeholder="6" min="1" value="6"></div>
+        <div class="field"><label>Yksikkö</label>
+          <select id="mIntervalUnit">
+            <option value="months">kuukautta</option>
+            <option value="years">vuotta</option>
+            <option value="days">päivää</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Edellinen huolto</label><input type="date" id="mLastDate" value="${today()}"></div>
+      <div class="field"><label>Muistiinpanot</label><textarea id="mNotes"></textarea></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveNewMaintenance()">Tallenna</button>
+      </div>`);
+  });
+}
+
+async function saveNewMaintenance() {
+  const name = document.getElementById('mName').value.trim();
+  if (!name) { toast('Anna nimi'); return; }
+  const lastDate = document.getElementById('mLastDate').value || null;
+  const interval = document.getElementById('mInterval').value;
+  const unit = document.getElementById('mIntervalUnit').value;
+  const item = {
+    id: uid(),
+    propertyId: state.currentPropertyId,
+    spaceId: document.getElementById('mSpace').value || null,
+    name,
+    category: document.getElementById('mCategory').value,
+    interval: Number(interval) || null,
+    intervalUnit: unit,
+    lastDate,
+    nextDate: lastDate && interval ? calcNextDate(lastDate, interval, unit) : null,
+    notes: document.getElementById('mNotes').value.trim(),
+    created: Date.now()
+  };
+  await dbPut('maintenanceItems', item);
+  closeModal();
+  toast('Huoltokohde lisätty');
+  render();
+}
+
+function openEditMaintenanceModal(id) {
+  Promise.all([dbGet('maintenanceItems', id), dbWhere('spaces', 'propertyId', state.currentPropertyId)]).then(([item, spaces]) => {
+    openModal(`
+      <div class="modal-title">Muokkaa huoltokohdetta</div>
+      <div class="field"><label>Nimi</label><input type="text" id="mName" value="${escapeHtml(item.name)}"></div>
+      <div class="field"><label>Tila</label>
+        <select id="mSpace">
+          <option value="">Ei tilaa</option>
+          ${spaces.map(s => `<option value="${s.id}" ${s.id === item.spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Kategoria</label>
+        <select id="mCategory">${Object.keys(CATEGORY_ICON).map(k => `<option ${k === item.category ? 'selected' : ''}>${k}</option>`).join('')}</select>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Huoltoväli</label><input type="number" id="mInterval" value="${item.interval || ''}"></div>
+        <div class="field"><label>Yksikkö</label>
+          <select id="mIntervalUnit">
+            <option value="months" ${item.intervalUnit === 'months' ? 'selected' : ''}>kuukautta</option>
+            <option value="years" ${item.intervalUnit === 'years' ? 'selected' : ''}>vuotta</option>
+            <option value="days" ${item.intervalUnit === 'days' ? 'selected' : ''}>päivää</option>
+          </select>
+        </div>
+      </div>
+      <div class="field"><label>Edellinen huolto</label><input type="date" id="mLastDate" value="${item.lastDate || ''}"></div>
+      <div class="field"><label>Muistiinpanot</label><textarea id="mNotes">${escapeHtml(item.notes || '')}</textarea></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveEditedMaintenance('${id}')">Tallenna</button>
+      </div>`);
+  });
+}
+
+async function saveEditedMaintenance(id) {
+  const item = await dbGet('maintenanceItems', id);
+  item.name = document.getElementById('mName').value.trim();
+  item.spaceId = document.getElementById('mSpace').value || null;
+  item.category = document.getElementById('mCategory').value;
+  item.interval = Number(document.getElementById('mInterval').value) || null;
+  item.intervalUnit = document.getElementById('mIntervalUnit').value;
+  item.lastDate = document.getElementById('mLastDate').value || null;
+  item.nextDate = item.lastDate && item.interval ? calcNextDate(item.lastDate, item.interval, item.intervalUnit) : null;
+  item.notes = document.getElementById('mNotes').value.trim();
+  await dbPut('maintenanceItems', item);
+  closeModal();
+  toast('Tallennettu');
+  render();
+}
+
+async function deleteMaintenanceItem(id) {
+  if (!confirm('Poistetaanko huoltokohde ja sen historia?')) return;
+  await dbDel('maintenanceItems', id);
+  const logs = await dbWhere('maintenanceLogs', 'itemId', id);
+  for (const l of logs) await dbDel('maintenanceLogs', l.id);
+  popView();
+  toast('Poistettu');
+}
+
+// --- Huoltomerkintä ---
+function openLogModal(itemId) {
+  state.formPhotos = [];
+  openModal(`
+    <div class="modal-title">Merkitse huolto tehdyksi</div>
+    <div class="modal-subtitle" id="logSubtitle">Lataa…</div>
+    <div class="field"><label>Päivämäärä</label><input type="date" id="logDate" value="${today()}"></div>
+    <div class="field"><label>Mitä tehtiin</label><textarea id="logWhat" placeholder="esim. Vaihdettu uusi suodatin"></textarea></div>
+    <div class="field-row">
+      <div class="field"><label>Kustannus (€)</label><input type="number" id="logCost" step="0.01" placeholder="0.00"></div>
+      <div class="field"><label>Tekijä</label><input type="text" id="logBy" placeholder="Itse / urakoitsija"></div>
+    </div>
+    <div class="field"><label>Valokuvat</label>
+      <div class="photo-grid" id="logPhotoGrid">
+        <button class="photo-add" onclick="document.getElementById('logPhotoInput').click()">+</button>
+      </div>
+      <input type="file" id="logPhotoInput" accept="image/*" capture="environment" style="display:none" multiple onchange="addLogPhotos(event)">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveLog('${itemId}')">Tallenna</button>
+    </div>`);
+  dbGet('maintenanceItems', itemId).then(item => {
+    document.getElementById('logSubtitle').textContent = item.name;
+  });
+}
+
+async function addLogPhotos(e) {
+  for (const f of Array.from(e.target.files)) state.formPhotos.push(await compressImage(f));
+  e.target.value = '';
+  document.getElementById('logPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
+    `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeFormPhoto(${i})">×</button></div>`
+  ).join('') + `<button class="photo-add" onclick="document.getElementById('logPhotoInput').click()">+</button>`;
+}
+
+function removeFormPhoto(i) {
+  state.formPhotos.splice(i, 1);
+  document.getElementById('logPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
+    `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeFormPhoto(${i})">×</button></div>`
+  ).join('') + `<button class="photo-add" onclick="document.getElementById('logPhotoInput').click()">+</button>`;
+}
+
+async function saveLog(itemId) {
+  const date = document.getElementById('logDate').value;
+  if (!date) { toast('Anna päivämäärä'); return; }
+  const log = {
+    id: uid(),
+    itemId,
+    date,
+    what: document.getElementById('logWhat').value.trim(),
+    cost: parseFloat(document.getElementById('logCost').value) || null,
+    by: document.getElementById('logBy').value.trim(),
+    photos: state.formPhotos,
+    created: Date.now()
+  };
+  await dbPut('maintenanceLogs', log);
+  const item = await dbGet('maintenanceItems', itemId);
+  item.lastDate = date;
+  if (item.interval) item.nextDate = calcNextDate(date, item.interval, item.intervalUnit);
+  await dbPut('maintenanceItems', item);
+  closeModal();
+  toast('Huolto merkitty tehdyksi');
+  render();
+}
+
+// --- Asiakirja ---
+function openAddDocModal(spaceId) {
+  state.formDocFile = null;
+  dbWhere('spaces', 'propertyId', state.currentPropertyId).then(spaces => {
+    openModal(`
+      <div class="modal-title">Uusi asiakirja</div>
+      <div class="modal-subtitle">PDF, kuva tai muu tiedosto</div>
+      <div class="field"><label>Tiedosto</label>
+        <input type="file" id="docFile" accept=".pdf,image/*,.doc,.docx" onchange="onDocFileSelected()">
+        <div id="docFileInfo" class="field-help"></div>
+      </div>
+      <div class="field"><label>Otsikko</label><input type="text" id="docTitle" placeholder="esim. Pohjapiirros 2018"></div>
+      <div class="field"><label>Kategoria</label>
+        <select id="docCategory">
+          <option>Piirustus</option><option>Takuu</option><option>Lasku</option>
+          <option>Sopimus</option><option>Käyttöohje</option><option>Muu</option>
+        </select>
+      </div>
+      <div class="field"><label>Liittyy tilaan (valinnainen)</label>
+        <select id="docSpace">
+          <option value="">Ei tilaa (kiinteistön yleinen)</option>
+          ${spaces.map(s => `<option value="${s.id}" ${s.id === spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+        </select>
+      </div>
+      <div class="field"><label>Muistiinpanot</label><textarea id="docNotes"></textarea></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveNewDoc()">Tallenna</button>
+      </div>`);
+  });
+}
+
+async function onDocFileSelected() {
+  const file = document.getElementById('docFile').files[0];
+  if (!file) return;
+  state.formDocFile = file;
+  if (file.type.startsWith('image/')) {
+    const compressed = await compressImage(file, 2000, 0.85);
+    state.formDocFile = compressed;
+    state.formDocFile.name = file.name;
+  }
+  document.getElementById('docFileInfo').textContent = `${file.name} (${fmtSize(state.formDocFile.size || file.size)})`;
+  if (!document.getElementById('docTitle').value) {
+    document.getElementById('docTitle').value = file.name.replace(/\.[^.]+$/, '');
+  }
+}
+
+async function saveNewDoc() {
+  if (!state.formDocFile) { toast('Valitse tiedosto'); return; }
+  const title = document.getElementById('docTitle').value.trim();
+  if (!title) { toast('Anna otsikko'); return; }
+  const fileName = state.formDocFile.name || document.getElementById('docFile').files[0]?.name || 'tiedosto';
+  const doc = {
+    id: uid(),
+    propertyId: state.currentPropertyId,
+    spaceId: document.getElementById('docSpace').value || null,
+    title,
+    category: document.getElementById('docCategory').value,
+    notes: document.getElementById('docNotes').value.trim(),
+    fileName, mimeType: state.formDocFile.type, size: state.formDocFile.size,
+    blob: state.formDocFile, created: Date.now()
+  };
+  await dbPut('documents', doc);
+  closeModal();
+  toast('Asiakirja lisätty');
+  render();
+}
+
+// --- Pikalisäys (etusivun FAB) ---
+function openQuickAddModal() {
+  openModal(`
+    <div class="modal-title">Mitä lisätään?</div>
+    <div class="modal-subtitle">Valitse mitä haluat lisätä</div>
+    <div class="menu-grid">
+      <div class="menu-tile" onclick="closeModal(); openAddMaintenanceModal(null);">
+        <div class="icon">⚒</div><div class="label">Huoltokohde</div>
+      </div>
+      <div class="menu-tile" onclick="closeModal(); openAddSpaceModal(null);">
+        <div class="icon">▦</div><div class="label">Tila</div>
+      </div>
+      <div class="menu-tile" onclick="closeModal(); openAddDocModal(null);">
+        <div class="icon">▤</div><div class="label">Asiakirja</div>
+      </div>
+      <div class="menu-tile" onclick="closeModal(); openAddPropertyModal();">
+        <div class="icon">⌂</div><div class="label">Kiinteistö</div>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top: 16px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Sulje</button>
+    </div>`);
+}
+
+function openAddInSpaceModal(spaceId) {
+  openModal(`
+    <div class="modal-title">Lisää tilaan</div>
+    <div class="menu-grid">
+      <div class="menu-tile" onclick="closeModal(); openAddSpaceModal('${spaceId}');">
+        <div class="icon">▦</div><div class="label">Alatila</div>
+      </div>
+      <div class="menu-tile" onclick="closeModal(); openAddMaintenanceModal('${spaceId}');">
+        <div class="icon">⚒</div><div class="label">Huoltokohde</div>
+      </div>
+      <div class="menu-tile" onclick="closeModal(); openAddDocModal('${spaceId}');">
+        <div class="icon">▤</div><div class="label">Asiakirja</div>
+      </div>
+      <div class="menu-tile" onclick="closeModal(); toast('Tulossa v0.4');">
+        <div class="icon">▣</div><div class="label">Laite</div>
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top: 16px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Sulje</button>
+    </div>`);
+}
+
+// --- Asetukset ---
+async function openSettingsModal() {
+  const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
+  const sizeText = est ? `${(est.usage/1048576).toFixed(1)} MB / ${(est.quota/1048576).toFixed(0)} MB` : '–';
+  openModal(`
+    <div class="modal-title">Asetukset</div>
+
+    <div class="section-title">Tallennustila</div>
+    <div class="setting-row" style="cursor: default;">
+      <div><div class="label">Käytössä</div><div class="value">${sizeText}</div></div>
+    </div>
+
+    <div class="section-title">Varmuuskopio</div>
+    <button class="btn btn-secondary" onclick="exportData()" style="margin-bottom: 8px;">⬇ Vie kaikki tiedot JSON-tiedostona</button>
+    <button class="btn btn-secondary" onclick="document.getElementById('importFile').click()" style="margin-bottom: 8px;">⬆ Tuo varmuuskopio</button>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
+    <p style="font-size: 12px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5;">Voit tallentaa varmuuskopion Google Driveen manuaalisesti. Automaattinen synkronointi tulee myöhempään versioon.</p>
+
+    <div class="section-title">Vaaravyöhyke</div>
+    <button class="btn btn-danger" onclick="resetData()">Tyhjennä kaikki tiedot</button>
+
+    <div class="btn-row" style="margin-top: 24px;">
+      <button class="btn btn-ghost" onclick="closeModal()">Sulje</button>
+    </div>`);
+}
+
+function blobToBase64(blob) {
+  return new Promise(res => { const r = new FileReader(); r.onloadend = () => res(r.result); r.readAsDataURL(blob); });
+}
+function base64ToBlob(b64) {
+  const [meta, data] = b64.split(',');
+  const mime = meta.match(/:(.+);/)[1];
+  const bytes = atob(data);
+  const arr = new Uint8Array(bytes.length);
+  for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
+async function exportData() {
+  toast('Pakataan…');
+  const data = { version: 3, app: 'Taloni', exported: new Date().toISOString() };
+  for (const store of STORES) {
+    const items = await dbAll(store);
+    // Käsittele blobit/photot
+    const processed = await Promise.all(items.map(async it => {
+      const copy = { ...it };
+      if (copy.blob instanceof Blob) copy.blob = await blobToBase64(copy.blob);
+      if (Array.isArray(copy.photos)) copy.photos = await Promise.all(copy.photos.map(p => p instanceof Blob ? blobToBase64(p) : p));
+      return copy;
+    }));
+    data[store] = processed;
+  }
+  const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = `taloni-${today()}.json`; a.click();
+  URL.revokeObjectURL(url);
+  toast('Vienti valmis');
+}
+
+async function importData(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!confirm('Korvaa kaikki nykyiset tiedot tuodulla varmuuskopiolla?')) { e.target.value = ''; return; }
+  toast('Tuodaan…');
+  const data = JSON.parse(await file.text());
+  for (const store of STORES) await dbClear(store);
+  for (const store of STORES) {
+    for (const it of (data[store] || [])) {
+      if (typeof it.blob === 'string') it.blob = base64ToBlob(it.blob);
+      if (Array.isArray(it.photos)) it.photos = it.photos.map(p => typeof p === 'string' ? base64ToBlob(p) : p);
+      await dbPut(store, it);
+    }
+  }
+  toast('Tuotu onnistuneesti');
+  e.target.value = '';
+  closeModal();
+  // Lataa viimeisin kiinteistö
+  const ls = await dbGet('settings', 'lastProperty');
+  if (ls) state.currentPropertyId = ls.value;
+  render();
+}
+
+async function resetData() {
+  if (!confirm('Tämä poistaa KAIKKI tiedot pysyvästi. Jatketaanko?')) return;
+  if (!confirm('Oletko varma? Tätä ei voi perua.')) return;
+  for (const store of STORES) await dbClear(store);
+  state.currentPropertyId = null;
+  clearStack();
+  closeModal();
+  toast('Tyhjennetty');
+  render();
+}
+
+// ============================================================
+// Käynnistys
+// ============================================================
+async function init() {
+  db = await openDB();
+
+  // Demodataa jos täysin tyhjää
+  const properties = await dbAll('properties');
+  if (properties.length === 0) {
+    // Esimerkkikiinteistö
+    const propId = uid();
+    await dbPut('properties', {
+      id: propId, name: 'Kotini', type: 'Omakotitalo',
+      address: 'Esimerkkitie 5', notes: 'Rakennettu 2015',
+      created: Date.now()
+    });
+
+    // Tilat
+    const pihaId = uid(), paaId = uid(), saunaId = uid(), autotalliId = uid();
+    const khId = uid(), keittioId = uid();
+    await dbPut('spaces', { id: pihaId, propertyId: propId, parentId: null, name: 'Piha-alue', type: 'piha', created: Date.now() });
+    await dbPut('spaces', { id: paaId, propertyId: propId, parentId: null, name: 'Päärakennus', type: 'rakennus', created: Date.now() });
+    await dbPut('spaces', { id: saunaId, propertyId: propId, parentId: null, name: 'Pihasauna', type: 'sauna', created: Date.now() });
+    await dbPut('spaces', { id: autotalliId, propertyId: propId, parentId: null, name: 'Autotalli/varasto', type: 'autotalli', created: Date.now() });
+    await dbPut('spaces', { id: khId, propertyId: propId, parentId: paaId, name: 'Kodinhoitohuone', type: 'huone', created: Date.now() });
+    await dbPut('spaces', { id: keittioId, propertyId: propId, parentId: paaId, name: 'Keittiö', type: 'keittiö', created: Date.now() });
+
+    // Huoltokohteet
+    const items = [
+      { name: 'Ilmanvaihtosuodattimet', category: 'LVI', spaceId: khId, interval: 6, intervalUnit: 'months', lastDate: '2025-09-15', notes: 'F7-suodatin, 2 kpl.' },
+      { name: 'Takan nuohous', category: 'Lämmitys', spaceId: paaId, interval: 1, intervalUnit: 'years', lastDate: '2025-04-10', notes: 'Nuohooja: Mäkelä, p. 040-1234567' },
+      { name: 'Salaojien tarkistus', category: 'Piha', spaceId: pihaId, interval: 1, intervalUnit: 'years', lastDate: '2024-10-20', notes: 'Tarkasta erityisesti pohjoispuoli.' },
+      { name: 'Vesikaton tarkistus', category: 'Julkisivu', spaceId: paaId, interval: 1, intervalUnit: 'years', lastDate: '2025-05-01', notes: 'Pellit, läpiviennit, sadevesijärjestelmä.' },
+      { name: 'Kiukaan kivien vaihto', category: 'Lämmitys', spaceId: saunaId, interval: 3, intervalUnit: 'years', lastDate: '2024-06-15', notes: 'Vaihto suositellaan 3 vuoden välein.' }
+    ];
+    for (const it of items) {
+      await dbPut('maintenanceItems', {
+        id: uid(), propertyId: propId, ...it,
+        nextDate: calcNextDate(it.lastDate, it.interval, it.intervalUnit),
+        created: Date.now()
+      });
+    }
+  }
+
+  // Lataa viimeisin valittu kiinteistö
+  const ls = await dbGet('settings', 'lastProperty');
+  const stillExists = ls && (await dbGet('properties', ls.value));
+  if (stillExists) state.currentPropertyId = ls.value;
+  else {
+    // Jos vain yksi, valitse se
+    const props = await dbAll('properties');
+    if (props.length === 1) state.currentPropertyId = props[0].id;
+  }
+
+  render();
+}
+
+init().catch(err => alert('Virhe alustuksessa: ' + err.message));
+</script>
+</body>
+</html>
