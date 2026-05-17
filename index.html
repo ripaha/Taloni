@@ -474,6 +474,41 @@ body {
 }
 .toast.show { opacity: 1; }
 
+/* --- Update banner --- */
+.update-banner {
+  position: fixed;
+  top: max(12px, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  padding: 10px 14px 10px 18px;
+  border-radius: 100px;
+  display: flex; align-items: center; gap: 10px;
+  z-index: 300;
+  box-shadow: 0 6px 20px rgba(45, 106, 79, 0.4);
+  animation: slideDown 0.3s ease;
+  max-width: 92vw;
+}
+@keyframes slideDown {
+  from { transform: translate(-50%, -100%); opacity: 0; }
+  to { transform: translate(-50%, 0); opacity: 1; }
+}
+.update-banner-text { font-size: 14px; font-weight: 500; white-space: nowrap; }
+.update-banner-btn {
+  background: white; color: var(--accent);
+  border: none; padding: 6px 14px; border-radius: 100px;
+  font-weight: 700; font-size: 13px; font-family: inherit;
+  cursor: pointer;
+}
+.update-banner-close {
+  background: transparent; color: white; border: none;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+}
+.update-banner-close svg { width: 16px; height: 16px; }
+
 /* --- Photo grid --- */
 .photo-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
@@ -618,8 +653,10 @@ body {
 
 <script>
 // ============================================================
-// PWA
+// PWA + Service Worker
 // ============================================================
+const APP_VERSION = '0.4.1';
+
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
   start_url: './', display: 'standalone', orientation: 'portrait',
@@ -630,6 +667,87 @@ const manifest = {
   ]
 };
 document.getElementById('manifestLink').href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
+
+// Service Worker rekisteröinti
+let swRegistration = null;
+let updateAvailable = false;
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', async () => {
+    try {
+      swRegistration = await navigator.serviceWorker.register('./sw.js');
+      console.log('[App] Service worker rekisteröity');
+
+      // Tarkista päivitykset heti
+      swRegistration.update();
+
+      // Tarkista päivitykset säännöllisesti taustalla (joka 30min)
+      setInterval(() => swRegistration.update(), 30 * 60 * 1000);
+
+      // Kuuntele uutta service workeria
+      swRegistration.addEventListener('updatefound', () => {
+        const newWorker = swRegistration.installing;
+        if (!newWorker) return;
+        newWorker.addEventListener('statechange', () => {
+          if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            // Uusi versio on saatavilla
+            updateAvailable = true;
+            showUpdateBanner();
+          }
+        });
+      });
+
+      // Kun service worker vaihtuu, päivitä sivu
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+    } catch (err) {
+      console.error('[App] Service worker virhe:', err);
+    }
+  });
+}
+
+function showUpdateBanner() {
+  // Älä näytä jos banneri on jo näkyvissä
+  if (document.getElementById('updateBanner')) return;
+  const banner = document.createElement('div');
+  banner.id = 'updateBanner';
+  banner.className = 'update-banner';
+  banner.innerHTML = `
+    <div class="update-banner-text">Uusi versio saatavilla</div>
+    <button class="update-banner-btn" onclick="applyUpdate()">Päivitä</button>
+    <button class="update-banner-close" onclick="document.getElementById('updateBanner').remove()">${icon('x')}</button>
+  `;
+  document.body.appendChild(banner);
+  refreshIcons();
+}
+
+function applyUpdate() {
+  if (!swRegistration || !swRegistration.waiting) {
+    window.location.reload();
+    return;
+  }
+  // Käske odottavan service workerin aktivoitumaan
+  swRegistration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  // controllerchange-tapahtuma hoitaa sivun päivityksen automaattisesti
+}
+
+// Manuaalinen päivitystarkistus
+async function checkForUpdates() {
+  if (!swRegistration) { toast('Service worker ei ole käytössä'); return; }
+  toast('Tarkistetaan päivityksiä…');
+  try {
+    await swRegistration.update();
+    setTimeout(() => {
+      if (!updateAvailable) toast('Olet jo uusimmassa versiossa');
+    }, 1500);
+  } catch (err) {
+    toast('Tarkistus epäonnistui');
+  }
+}
 
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); deferredPrompt = e; });
@@ -1226,12 +1344,16 @@ async function renderMore() {
       <div><div class="label">Asetukset ja varmuuskopio</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
     </div>
+    <div class="setting-row" onclick="checkForUpdates()">
+      <div><div class="label">Tarkista päivitykset</div><div class="value">Versio ${APP_VERSION}</div></div>
+      <div class="arrow">${icon('refresh-cw')}</div>
+    </div>
     <div class="setting-row" onclick="installApp()">
       <div><div class="label">Asenna kotinäytölle</div><div class="value">PWA-asennus</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
     </div>
     <div class="setting-row" style="cursor: default;">
-      <div><div class="label">Versio</div><div class="value">0.4.1 — Touko 2026</div></div>
+      <div><div class="label">Versio</div><div class="value">${APP_VERSION} — Touko 2026</div></div>
     </div>
   `;
 }
