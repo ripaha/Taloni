@@ -180,47 +180,55 @@ body {
   font-weight: 500;
 }
 
-/* --- Cards --- */
+/* --- Cards (D-style: neutral, grouped) --- */
 .card {
   background: var(--bg-card);
-  border-radius: var(--radius);
+  border-radius: var(--radius-sm);
   padding: 12px 14px;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   box-shadow: var(--shadow-sm);
   cursor: pointer;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
-  position: relative;
-  border: 1px solid transparent;
+  transition: transform 0.12s ease;
+  border: 1px solid var(--border-soft);
 }
-.card:active { transform: scale(0.99); box-shadow: var(--shadow); }
-.card.overdue { border-left: 3px solid var(--danger); }
-.card.soon { border-left: 3px solid var(--warn); }
+.card:active { transform: scale(0.99); }
 
 .card-row { display: flex; align-items: center; gap: 12px; }
 .card-icon {
-  width: 38px; height: 38px;
-  background: var(--accent-pale); color: var(--accent);
-  border-radius: 10px;
+  width: 34px; height: 34px;
+  background: var(--bg-soft); color: var(--ink-soft);
+  border-radius: 8px;
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
 }
-.card-icon svg { width: 19px; height: 19px; }
-.card-icon.warm { background: var(--warm-soft); color: var(--warm); }
-.card-icon.danger { background: var(--danger-soft); color: var(--danger); }
+.card-icon svg { width: 17px; height: 17px; }
+
 .card-main { flex: 1; min-width: 0; }
 .card-title {
   font-weight: 600; font-size: 15px; color: var(--ink);
   word-break: break-word; line-height: 1.3;
 }
-.card-title .title-date {
-  font-weight: 500; color: var(--ink-soft); font-size: 14px;
+
+.card-date {
+  font-size: 12.5px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
-.card-meta {
-  font-size: 12.5px; color: var(--ink-soft);
-  display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
-  margin-top: 3px;
+
+/* Group titles (Myöhässä, Tulossa) */
+.group-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin: 22px 0 10px;
+  color: var(--ink-soft);
 }
-.card-meta .dot { color: var(--ink-faint); }
+.group-title:first-child { margin-top: 8px; }
+.group-title.urgent { color: var(--danger); }
+.group-title.soon { color: var(--warn); }
 
 /* --- Badge --- */
 .badge {
@@ -652,7 +660,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.4.4';
+const APP_VERSION = '0.4.5';
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
@@ -1066,8 +1074,14 @@ async function renderHome() {
     <p class="page-subtitle">${escapeHtml(property.address || property.type || '')}</p>
 
     ${(overdue.length + soon.length) > 0 ? `
-      <div class="section-title">Ajankohtaiset tehtävät</div>
-      ${[...overdue, ...soon].map(it => renderMaintenanceCard(it, true)).join('')}
+      ${overdue.length > 0 ? `
+        <div class="group-title urgent">Myöhässä</div>
+        ${overdue.map(it => renderMaintenanceCard(it)).join('')}
+      ` : ''}
+      ${soon.length > 0 ? `
+        <div class="group-title soon">Tulossa</div>
+        ${soon.map(it => renderMaintenanceCard(it)).join('')}
+      ` : ''}
     ` : items.length > 0 ? `
       <div class="empty">
         <div class="empty-icon-circle">${icon('check')}</div>
@@ -1101,26 +1115,18 @@ async function renderHome() {
 
 function renderMaintenanceCard(item, withAction = false) {
   const days = daysUntil(item.nextDate);
-  let badge = '', cls = '', iconCls = '';
+  let dateInfo = '';
   if (days !== null) {
-    if (days < 0) {
-      badge = `<span class="badge danger">${Math.abs(days)} pv myöhässä</span>`;
-      cls = 'overdue'; iconCls = 'danger';
-    } else if (days <= 30) {
-      badge = `<span class="badge warn">${days} pv</span>`;
-      cls = 'soon'; iconCls = 'warm';
-    } else {
-      badge = `<span class="badge ok">${days} pv</span>`;
-    }
+    if (days < 0) dateInfo = `${Math.abs(days)} pv · ${fmtDateShort(item.nextDate)}`;
+    else dateInfo = `${days} pv · ${fmtDateShort(item.nextDate)}`;
   }
-  const dateInTitle = item.nextDate ? ` <span class="title-date">(${fmtDateShort(item.nextDate)})</span>` : '';
-  return `<div class="card ${cls}" onclick="pushView({view:'maintenanceItem', id:'${item.id}'})">
+  return `<div class="card" onclick="pushView({view:'maintenanceItem', id:'${item.id}'})">
     <div class="card-row">
-      <div class="card-icon ${iconCls}">${icon(CATEGORY_ICON[item.category] || 'wrench')}</div>
+      <div class="card-icon">${icon(CATEGORY_ICON[item.category] || 'wrench')}</div>
       <div class="card-main">
-        <div class="card-title">${escapeHtml(item.name)}${dateInTitle}</div>
+        <div class="card-title">${escapeHtml(item.name)}</div>
       </div>
-      ${badge}
+      ${dateInfo ? `<div class="card-date">${dateInfo}</div>` : ''}
     </div>
   </div>`;
 }
@@ -1349,11 +1355,19 @@ async function renderMaintenanceList() {
   const items = await dbWhere('maintenanceItems', 'propertyId', state.currentPropertyId);
   items.sort((a, b) => !a.nextDate ? 1 : !b.nextDate ? -1 : a.nextDate.localeCompare(b.nextDate));
   document.getElementById('fab').style.display = 'flex';
+
+  const overdue = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d < 0; });
+  const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= 30; });
+  const later = items.filter(i => { const d = daysUntil(i.nextDate); return d === null || d > 30; });
+
   c.innerHTML = `
     <h1 class="page-title">Huollot</h1>
     <p class="page-subtitle">${items.length} ${items.length === 1 ? 'kohde' : 'kohdetta'}</p>
-    ${items.length === 0 ? `<div class="empty"><div class="empty-icon-circle">${icon('wrench')}</div><div class="empty-title">Ei huoltoja</div><div class="empty-text">Aloita lisäämällä ensimmäinen kohde</div></div>` :
-    items.map(i => renderMaintenanceCard(i)).join('')}`;
+    ${items.length === 0 ? `<div class="empty"><div class="empty-icon-circle">${icon('wrench')}</div><div class="empty-title">Ei huoltoja</div><div class="empty-text">Aloita lisäämällä ensimmäinen kohde</div></div>` : `
+      ${overdue.length > 0 ? `<div class="group-title urgent">Myöhässä</div>${overdue.map(i => renderMaintenanceCard(i)).join('')}` : ''}
+      ${soon.length > 0 ? `<div class="group-title soon">Tulossa</div>${soon.map(i => renderMaintenanceCard(i)).join('')}` : ''}
+      ${later.length > 0 ? `<div class="group-title">Myöhemmin</div>${later.map(i => renderMaintenanceCard(i)).join('')}` : ''}
+    `}`;
 }
 
 async function renderDevicesList() {
