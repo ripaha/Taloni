@@ -106,14 +106,14 @@ body {
 .prop-pill {
   display: inline-flex; align-items: center; gap: 6px;
   background: var(--accent-soft); color: var(--accent-dark);
-  padding: 7px 12px 7px 14px; border-radius: 100px;
+  padding: 7px 12px; border-radius: 8px;
   font-size: 13px; font-weight: 600;
-  border: none; cursor: pointer; font-family: inherit;
+  border: 1px solid transparent; cursor: pointer; font-family: inherit;
   max-width: 50%;
 }
 .prop-pill .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .prop-pill svg { width: 14px; height: 14px; flex-shrink: 0; }
-.prop-pill:active { background: #d8ebde; }
+.prop-pill:active { background: #dceaff; }
 
 /* --- Back nav --- */
 .back-nav {
@@ -268,16 +268,17 @@ body {
   position: fixed;
   right: max(20px, calc(50% - 240px));
   bottom: calc(86px + env(safe-area-inset-bottom));
-  width: 60px; height: 60px;
-  background: var(--accent); color: white;
-  border: none; border-radius: 50%;
-  box-shadow: 0 6px 20px rgba(45, 106, 79, 0.35);
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: white;
+  border: none; border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35);
   cursor: pointer; z-index: 50;
   display: flex; align-items: center; justify-content: center;
   transition: transform 0.15s ease;
 }
 .fab:active { transform: scale(0.92); }
-.fab svg { width: 26px; height: 26px; }
+.fab svg { width: 24px; height: 24px; }
 
 /* --- Bottom nav --- */
 .nav {
@@ -663,7 +664,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.4.6';
+const APP_VERSION = '0.4.7';
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
