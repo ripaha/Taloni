@@ -9,43 +9,43 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <title>Taloni</title>
 <link rel="manifest" id="manifestLink">
-<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%232d6a4f"/><path d="M50 24 L78 46 L78 78 L22 78 L22 46 Z" fill="none" stroke="white" stroke-width="6" stroke-linejoin="round"/></svg>'>
+<link rel="icon" type="image/svg+xml" href='data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" rx="22" fill="%232563eb"/><path d="M50 24 L78 46 L78 78 L22 78 L22 46 Z" fill="none" stroke="white" stroke-width="6" stroke-linejoin="round"/></svg>'>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 <style>
 :root {
   /* Light, airy palette */
   --bg: #ffffff;
-  --bg-soft: #f7faf8;
+  --bg-soft: #f5f7fa;
   --bg-card: #ffffff;
 
-  --ink: #1a2620;
-  --ink-soft: #5e6d65;
-  --ink-faint: #94a09a;
+  --ink: #0f172a;
+  --ink-soft: #64748b;
+  --ink-faint: #94a3b8;
 
-  --accent: #2d6a4f;        /* fresh green */
-  --accent-dark: #1f4d39;
-  --accent-soft: #e8f3ec;
-  --accent-pale: #f3f9f5;
+  --accent: #2563eb;        /* modern blue */
+  --accent-dark: #1e40af;
+  --accent-soft: #eff6ff;
+  --accent-pale: #f5f9ff;
 
-  --warm: #d97757;          /* warm accent */
-  --warm-soft: #fbebe3;
+  --warm: #ea580c;          /* warm accent */
+  --warm-soft: #ffedd5;
 
-  --border: #e6ebe7;
-  --border-soft: #f0f3f1;
+  --border: #e5e9f0;
+  --border-soft: #eef2f5;
 
-  --danger: #c4373a;
-  --danger-soft: #fde9ea;
-  --success: #2d8659;
-  --success-soft: #e6f2eb;
-  --warn: #c97a2b;
-  --warn-soft: #fbeedd;
+  --danger: #dc2626;
+  --danger-soft: #fee2e2;
+  --success: #16a34a;
+  --success-soft: #dcfce7;
+  --warn: #ea580c;
+  --warn-soft: #ffedd5;
 
-  --shadow-sm: 0 1px 2px rgba(20, 40, 32, 0.04);
-  --shadow: 0 1px 3px rgba(20, 40, 32, 0.04), 0 2px 8px rgba(20, 40, 32, 0.04);
-  --shadow-lg: 0 4px 12px rgba(20, 40, 32, 0.06), 0 10px 30px rgba(20, 40, 32, 0.06);
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.04), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --shadow-lg: 0 4px 12px rgba(15, 23, 42, 0.06), 0 10px 30px rgba(15, 23, 42, 0.06);
 
   --radius: 14px;
   --radius-sm: 10px;
@@ -78,17 +78,18 @@ body {
   position: sticky; top: 0; z-index: 30;
 }
 .brand {
-  font-family: 'Fraunces', serif;
-  font-weight: 600;
-  font-size: 20px;
-  color: var(--accent);
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--ink);
   letter-spacing: -0.01em;
   display: flex; align-items: center; gap: 8px;
 }
 .brand-mark {
   width: 28px; height: 28px;
-  background: var(--accent); color: white;
-  border-radius: 7px; display: flex;
+  background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+  color: white;
+  border-radius: 8px; display: flex;
   align-items: center; justify-content: center;
 }
 .brand-mark svg { width: 16px; height: 16px; }
@@ -128,13 +129,13 @@ body {
 
 /* --- Headings --- */
 .page-title {
-  font-family: 'Fraunces', serif;
-  font-weight: 600;
-  font-size: 30px;
-  letter-spacing: -0.02em;
+  font-family: 'Inter', sans-serif;
+  font-weight: 700;
+  font-size: 26px;
+  letter-spacing: -0.025em;
   color: var(--ink);
   margin-bottom: 4px;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 .page-subtitle {
   font-size: 14px; color: var(--ink-soft); margin-bottom: 24px;
@@ -168,7 +169,7 @@ body {
   display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .stat-num {
-  font-family: 'Fraunces', serif;
+  font-family: 'Inter', sans-serif;
   font-size: 20px; font-weight: 600; line-height: 1;
   color: var(--ink);
 }
@@ -255,7 +256,7 @@ body {
 }
 .empty-icon-circle svg { width: 32px; height: 32px; }
 .empty-title {
-  font-family: 'Fraunces', serif;
+  font-family: 'Inter', sans-serif;
   font-size: 20px; font-weight: 600;
   color: var(--ink); margin-bottom: 6px;
 }
@@ -332,9 +333,9 @@ body {
   margin: 0 auto 20px;
 }
 .modal-title {
-  font-family: 'Fraunces', serif;
-  font-size: 24px; font-weight: 600;
-  margin-bottom: 6px; letter-spacing: -0.01em;
+  font-family: 'Inter', sans-serif;
+  font-size: 22px; font-weight: 700;
+  margin-bottom: 6px; letter-spacing: -0.02em;
 }
 .modal-subtitle {
   font-size: 14px; color: var(--ink-soft);
@@ -432,8 +433,8 @@ body {
 }
 .property-card-content { position: relative; }
 .property-card h3 {
-  font-family: 'Fraunces', serif; font-size: 22px; font-weight: 600;
-  margin-bottom: 4px; color: var(--ink);
+  font-family: 'Inter', sans-serif; font-size: 20px; font-weight: 700;
+  margin-bottom: 4px; color: var(--ink); letter-spacing: -0.02em;
 }
 .property-card .meta { font-size: 14px; color: var(--ink-soft); }
 
@@ -552,9 +553,9 @@ body {
   align-items: flex-start; gap: 14px; margin-bottom: 4px;
 }
 .detail-hero h2 {
-  font-family: 'Fraunces', serif;
-  font-size: 26px; font-weight: 600;
-  letter-spacing: -0.01em; line-height: 1.2;
+  font-family: 'Inter', sans-serif;
+  font-size: 22px; font-weight: 700;
+  letter-spacing: -0.02em; line-height: 1.25;
   word-break: break-word;
 }
 .detail-hero .sub {
@@ -574,17 +575,18 @@ body {
   font-weight: 600;
 }
 .detail-meta-item .value {
-  font-family: 'Fraunces', serif;
-  font-size: 17px; font-weight: 600; margin-top: 3px;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px; font-weight: 600; margin-top: 3px;
+  letter-spacing: -0.01em;
 }
 
 /* --- Doc card --- */
 .doc-icon-wrap {
   width: 44px; height: 44px; border-radius: 10px;
-  background: var(--accent-pale); color: var(--accent);
+  background: var(--accent-soft); color: var(--accent);
   display: flex; align-items: center; justify-content: center;
-  font-family: 'Fraunces', serif; font-size: 11px; font-weight: 700;
-  flex-shrink: 0;
+  font-family: 'Inter', sans-serif; font-size: 11px; font-weight: 700;
+  flex-shrink: 0; letter-spacing: 0.02em;
 }
 .doc-icon-wrap.pdf { background: var(--warm-soft); color: var(--warm); }
 .doc-icon-wrap.img { background: var(--success-soft); color: var(--success); }
@@ -597,9 +599,10 @@ body {
 }
 .history-item:last-child { border-bottom: none; }
 .history-date {
-  font-family: 'Fraunces', serif; font-size: 13px;
-  color: var(--ink-soft); min-width: 56px;
+  font-family: 'Inter', sans-serif; font-size: 13px;
+  color: var(--ink-soft); min-width: 56px; font-weight: 500;
   text-align: right; padding-top: 2px;
+  font-variant-numeric: tabular-nums;
 }
 .history-content { flex: 1; }
 .history-content .what { font-weight: 500; margin-bottom: 3px; }
@@ -629,8 +632,8 @@ body {
 }
 .menu-tile .icon svg { width: 22px; height: 22px; }
 .menu-tile .label {
-  font-family: 'Fraunces', serif; font-weight: 600;
-  font-size: 16px;
+  font-family: 'Inter', sans-serif; font-weight: 600;
+  font-size: 15px;
 }
 .menu-tile .sub { font-size: 12px; color: var(--ink-soft); }
 
@@ -660,15 +663,15 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.4.5';
+const APP_VERSION = '0.4.6';
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
   start_url: './', display: 'standalone', orientation: 'portrait',
-  background_color: '#ffffff', theme_color: '#2d6a4f',
+  background_color: '#ffffff', theme_color: '#2563eb',
   icons: [
-    { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="%232d6a4f"/><path d="M96 46 L150 88 L150 150 L42 150 L42 88 Z" fill="none" stroke="white" stroke-width="11" stroke-linejoin="round"/></svg>', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
-    { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="%232d6a4f"/><path d="M256 122 L400 234 L400 396 L112 396 L112 234 Z" fill="none" stroke="white" stroke-width="30" stroke-linejoin="round"/></svg>', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }
+    { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="%232563eb"/><path d="M96 46 L150 88 L150 150 L42 150 L42 88 Z" fill="none" stroke="white" stroke-width="11" stroke-linejoin="round"/></svg>', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
+    { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="%232563eb"/><path d="M256 122 L400 234 L400 396 L112 396 L112 234 Z" fill="none" stroke="white" stroke-width="30" stroke-linejoin="round"/></svg>', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }
   ]
 };
 document.getElementById('manifestLink').href = URL.createObjectURL(new Blob([JSON.stringify(manifest)], { type: 'application/manifest+json' }));
@@ -1480,8 +1483,8 @@ async function renderDocumentDetail(id) {
   const isImg = (d.mimeType || '').startsWith('image/');
   let preview = '';
   if (isImg) preview = `<img src="${URL.createObjectURL(d.blob)}" style="width: 100%; border-radius: 14px; margin-bottom: 18px;">`;
-  else if (isPdf) preview = `<div style="background: var(--warm-soft); color: var(--warm); padding: 40px; text-align: center; border-radius: 14px; margin-bottom: 18px; font-family: 'Fraunces', serif; font-size: 36px; font-weight: 600;">PDF</div>`;
-  else preview = `<div style="background: var(--accent-pale); color: var(--accent); padding: 40px; text-align: center; border-radius: 14px; margin-bottom: 18px; font-family: 'Fraunces', serif; font-size: 32px; font-weight: 600;">${(d.fileName||'').split('.').pop().toUpperCase().slice(0,4) || 'FILE'}</div>`;
+  else if (isPdf) preview = `<div style="background: var(--warm-soft); color: var(--warm); padding: 40px; text-align: center; border-radius: 14px; margin-bottom: 18px; font-family: 'Inter', sans-serif; font-size: 28px; font-weight: 700; letter-spacing: -0.02em;">PDF</div>`;
+  else preview = `<div style="background: var(--accent-soft); color: var(--accent); padding: 40px; text-align: center; border-radius: 14px; margin-bottom: 18px; font-family: 'Inter', sans-serif; font-size: 24px; font-weight: 700; letter-spacing: -0.02em;">${(d.fileName||'').split('.').pop().toUpperCase().slice(0,4) || 'FILE'}</div>`;
 
   c.innerHTML = `
     <h1 class="page-title">${escapeHtml(d.title)}</h1>
