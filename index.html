@@ -646,6 +646,64 @@ body {
 }
 .breadcrumbs svg { width: 12px; height: 12px; color: var(--ink-faint); }
 .breadcrumbs .current { color: var(--ink); font-weight: 500; }
+
+/* --- Taxonomy rows --- */
+.taxonomy-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  margin-bottom: 6px;
+  border: 1px solid var(--border-soft);
+}
+.taxonomy-row .icon-wrap {
+  width: 36px; height: 36px;
+  background: var(--bg-soft); color: var(--ink-soft);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.taxonomy-row .icon-wrap svg { width: 18px; height: 18px; }
+.taxonomy-row .text { flex: 1; min-width: 0; }
+.taxonomy-row .name { font-weight: 600; font-size: 15px; }
+.taxonomy-row .sub { font-size: 12px; color: var(--ink-soft); margin-top: 2px; }
+.tax-actions { display: flex; gap: 2px; }
+.tax-action-btn {
+  width: 32px; height: 32px;
+  background: transparent; border: none; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-soft); cursor: pointer; padding: 0;
+}
+.tax-action-btn:active { background: var(--bg-soft); }
+.tax-action-btn:disabled { color: var(--ink-faint); opacity: 0.4; cursor: not-allowed; }
+.tax-action-btn svg { width: 16px; height: 16px; }
+
+/* --- Icon picker --- */
+.icon-picker {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 6px;
+  padding: 8px;
+  background: var(--bg-soft);
+  border-radius: 12px;
+}
+.icon-option {
+  aspect-ratio: 1;
+  border: 1.5px solid transparent;
+  background: var(--bg-card);
+  border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.icon-option svg { width: 18px; height: 18px; }
+.icon-option:active { background: var(--accent-soft); }
+.icon-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
 </style>
 </head>
 <body>
@@ -664,7 +722,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.4.7';
+const APP_VERSION = '0.5.0';
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
@@ -772,11 +830,12 @@ async function installApp() {
 // IndexedDB
 // ============================================================
 const DB_NAME = 'taloni';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let db = null;
 
 const STORES = ['properties', 'spaces', 'devices', 'maintenanceItems', 'maintenanceLogs',
-                'journalEntries', 'projects', 'documents', 'contacts', 'meters', 'meterReadings', 'settings'];
+                'journalEntries', 'projects', 'documents', 'contacts', 'meters', 'meterReadings',
+                'taxonomies', 'settings'];
 
 function openDB() {
   return new Promise((resolve, reject) => {
@@ -826,6 +885,10 @@ function openDB() {
       if (!db.objectStoreNames.contains('meterReadings')) {
         const s = db.createObjectStore('meterReadings', { keyPath: 'id' });
         s.createIndex('meterId', 'meterId');
+      }
+      if (!db.objectStoreNames.contains('taxonomies')) {
+        const s = db.createObjectStore('taxonomies', { keyPath: 'id' });
+        s.createIndex('type', 'type');
       }
       if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
     };
@@ -896,29 +959,67 @@ async function compressImage(file, maxWidth = 1600, quality = 0.82) {
 }
 
 // Lucide ikonit kategorioille ja tilatyypeille
-const CATEGORY_ICON = {
-  'LVI': 'droplets',
-  'Sähkö': 'zap',
-  'Lämmitys': 'flame',
-  'Piha': 'trees',
-  'Julkisivu': 'home',
-  'Sisätilat': 'sofa',
-  'Laitteet': 'box',
-  'Muu': 'wrench'
+// === Luokitukset (taxonomies) ===
+// Oletukset, joista ensimmäisellä käynnistyskerralla luodaan tietokantaan.
+// Käyttäjä voi muokata, lisätä ja poistaa asetuksista.
+const DEFAULT_TAXONOMIES = {
+  spaceType: [
+    { name: 'rakennus', icon: 'home' },
+    { name: 'huone', icon: 'door-open' },
+    { name: 'keittiö', icon: 'utensils' },
+    { name: 'kylpyhuone', icon: 'bath' },
+    { name: 'sauna', icon: 'flame' },
+    { name: 'autotalli', icon: 'car' },
+    { name: 'varasto', icon: 'package' },
+    { name: 'piha', icon: 'trees' },
+    { name: 'terassi', icon: 'sun' },
+    { name: 'muu', icon: 'square' }
+  ],
+  maintenanceCategory: [
+    { name: 'LVI', icon: 'droplets' },
+    { name: 'Sähkö', icon: 'zap' },
+    { name: 'Lämmitys', icon: 'flame' },
+    { name: 'Piha', icon: 'trees' },
+    { name: 'Julkisivu', icon: 'home' },
+    { name: 'Sisätilat', icon: 'sofa' },
+    { name: 'Laitteet', icon: 'box' },
+    { name: 'Muu', icon: 'wrench' }
+  ]
 };
-const SPACE_TYPE_ICON = {
-  'rakennus': 'home',
-  'huone': 'door-open',
-  'keittiö': 'utensils',
-  'kylpyhuone': 'bath',
-  'sauna': 'flame',
-  'autotalli': 'car',
-  'varasto': 'package',
-  'piha': 'trees',
-  'terassi': 'sun',
-  'muu': 'square'
-};
-const SPACE_TYPES = ['rakennus','huone','keittiö','kylpyhuone','sauna','autotalli','varasto','piha','terassi','muu'];
+
+// Ikonivalikoima jonka käyttäjä voi valita luokituksille
+const TAXONOMY_ICON_PALETTE = [
+  'home', 'door-open', 'utensils', 'bath', 'flame', 'car', 'package',
+  'trees', 'sun', 'square', 'droplets', 'zap', 'sofa', 'box', 'wrench',
+  'thermometer', 'wind', 'lightbulb', 'tv', 'refrigerator', 'washing-machine',
+  'fan', 'snowflake', 'hammer', 'shower-head', 'tent', 'warehouse',
+  'flower-2', 'leaf', 'mountain', 'sparkles', 'star', 'circle'
+];
+
+// Haetaan luokitukset (tyyppi: 'spaceType' tai 'maintenanceCategory')
+async function getTaxonomy(type) {
+  const all = await dbAll('taxonomies');
+  return all.filter(t => t.type === type).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
+
+// Pikahaku ikonille luokitusnimen perusteella
+async function getTaxonomyIcon(type, name) {
+  const list = await getTaxonomy(type);
+  const found = list.find(t => t.name === name);
+  return found?.icon || (type === 'maintenanceCategory' ? 'wrench' : 'square');
+}
+
+// Synkrooninen versio: ikoni-cache jota täytetään render-ajossa
+let taxonomyIconCache = { spaceType: {}, maintenanceCategory: {} };
+async function refreshTaxonomyCache() {
+  const spaceTypes = await getTaxonomy('spaceType');
+  const categories = await getTaxonomy('maintenanceCategory');
+  taxonomyIconCache.spaceType = Object.fromEntries(spaceTypes.map(t => [t.name, t.icon]));
+  taxonomyIconCache.maintenanceCategory = Object.fromEntries(categories.map(t => [t.name, t.icon]));
+}
+function spaceIcon(name) { return taxonomyIconCache.spaceType[name] || 'square'; }
+function categoryIcon(name) { return taxonomyIconCache.maintenanceCategory[name] || 'wrench'; }
+
 const PROPERTY_TYPES = ['Omakotitalo','Loma-asunto','Kerrostalo','Rivitalo','Muu'];
 
 // Pieni apuri Lucide-ikonin renderöimiseen HTML-merkkijonona
@@ -1015,6 +1116,8 @@ async function renderContent() {
     if (top.view === 'maintenanceItem') return renderMaintenanceItemDetail(top.id);
     if (top.view === 'device') return renderDeviceDetail(top.id);
     if (top.view === 'document') return renderDocumentDetail(top.id);
+    if (top.view === 'taxonomies') return renderTaxonomyList();
+    if (top.view === 'taxonomyEdit') return renderTaxonomyEdit(top.type);
   }
   if (state.currentTab === 'home') return renderHome();
   if (state.currentTab === 'spaces') return renderSpaces();
@@ -1126,7 +1229,7 @@ function renderMaintenanceCard(item, withAction = false) {
   }
   return `<div class="card" onclick="pushView({view:'maintenanceItem', id:'${item.id}'})">
     <div class="card-row">
-      <div class="card-icon">${icon(CATEGORY_ICON[item.category] || 'wrench')}</div>
+      <div class="card-icon">${icon(categoryIcon(item.category))}</div>
       <div class="card-main">
         <div class="card-title">${escapeHtml(item.name)}</div>
       </div>
@@ -1166,7 +1269,7 @@ async function renderSpaces() {
 function renderSpaceListItem(space, allSpaces) {
   const children = allSpaces.filter(s => s.parentId === space.id);
   return `<div class="list-item" onclick="pushView({view:'space', id:'${space.id}'})">
-    <div class="icon-wrap">${icon(SPACE_TYPE_ICON[space.type] || 'square')}</div>
+    <div class="icon-wrap">${icon(spaceIcon(space.type))}</div>
     <div class="text">
       <div class="name">${escapeHtml(space.name)}</div>
       <div class="sub">${space.type || 'tila'}${children.length > 0 ? ` · ${children.length} alatilaa` : ''}</div>
@@ -1203,7 +1306,7 @@ async function renderSpaceView(spaceId) {
       <div class="detail-hero-top">
         <div>
           <h2>${escapeHtml(space.name)}</h2>
-          <div class="sub">${icon(SPACE_TYPE_ICON[space.type] || 'square')}<span>${escapeHtml(space.type || 'tila')}</span></div>
+          <div class="sub">${icon(spaceIcon(space.type))}<span>${escapeHtml(space.type || 'tila')}</span></div>
         </div>
       </div>
       ${space.notes ? `<div style="margin-top: 14px; font-size: 14px;">${escapeHtml(space.notes)}</div>` : ''}
@@ -1333,6 +1436,10 @@ async function renderMore() {
     </div>
 
     <div class="section-title">Sovellus</div>
+    <div class="setting-row" onclick="pushView({view:'taxonomies'})">
+      <div><div class="label">Luokitukset</div><div class="value">Tilatyypit, huoltokategoriat</div></div>
+      <div class="arrow">${icon('chevron-right')}</div>
+    </div>
     <div class="setting-row" onclick="openSettingsModal()">
       <div><div class="label">Asetukset ja varmuuskopio</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
@@ -1439,7 +1546,7 @@ async function renderMaintenanceItemDetail(id) {
       <div class="detail-hero-top">
         <div>
           <h2>${escapeHtml(item.name)}</h2>
-          <div class="sub">${icon(CATEGORY_ICON[item.category] || 'wrench')}<span>${escapeHtml(item.category)}${space ? ` · ${escapeHtml(space.name)}` : ''}</span></div>
+          <div class="sub">${icon(categoryIcon(item.category))}<span>${escapeHtml(item.category)}${space ? ` · ${escapeHtml(space.name)}` : ''}</span></div>
         </div>
         ${statusBadge}
       </div>
@@ -1516,6 +1623,247 @@ async function deleteDoc(id) {
   await dbDel('documents', id);
   popView();
   toast('Poistettu');
+}
+
+// ============================================================
+// Luokitukset (taxonomies) — hallintanäkymät
+// ============================================================
+async function renderTaxonomyList() {
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <h1 class="page-title">Luokitukset</h1>
+    <p class="page-subtitle">Mukauta tilatyyppejä ja huoltokategorioita omaan käyttöösi</p>
+
+    <div class="list-item" onclick="pushView({view:'taxonomyEdit', type:'spaceType'})">
+      <div class="icon-wrap">${icon('layout-grid')}</div>
+      <div class="text">
+        <div class="name">Tilatyypit</div>
+        <div class="sub">rakennus, huone, sauna, autotalli...</div>
+      </div>
+      <div class="arrow">${icon('chevron-right')}</div>
+    </div>
+
+    <div class="list-item" onclick="pushView({view:'taxonomyEdit', type:'maintenanceCategory'})">
+      <div class="icon-wrap">${icon('wrench')}</div>
+      <div class="text">
+        <div class="name">Huoltokategoriat</div>
+        <div class="sub">LVI, Sähkö, Lämmitys, Piha...</div>
+      </div>
+      <div class="arrow">${icon('chevron-right')}</div>
+    </div>
+
+    <p style="font-size: 13px; color: var(--ink-soft); margin-top: 20px; line-height: 1.5;">
+      Muutokset näkyvät heti uusissa huoltokohteissa ja tiloissa. Olemassa olevat kohteet säilyttävät nykyiset luokituksensa.
+    </p>
+  `;
+}
+
+async function renderTaxonomyEdit(type) {
+  const c = document.getElementById('content');
+  const items = await getTaxonomy(type);
+  const titles = {
+    spaceType: { name: 'Tilatyypit', single: 'tilatyyppi', usage: 'tiloja' },
+    maintenanceCategory: { name: 'Huoltokategoriat', single: 'kategoria', usage: 'huoltokohteita' }
+  };
+  const t = titles[type];
+
+  // Lasketaan käyttömäärät
+  const usageMap = {};
+  if (type === 'spaceType') {
+    const spaces = await dbAll('spaces');
+    spaces.forEach(s => { usageMap[s.type] = (usageMap[s.type] || 0) + 1; });
+  } else {
+    const mItems = await dbAll('maintenanceItems');
+    mItems.forEach(m => { usageMap[m.category] = (usageMap[m.category] || 0) + 1; });
+  }
+
+  c.innerHTML = `
+    <h1 class="page-title">${t.name}</h1>
+    <p class="page-subtitle">${items.length} ${t.single}${items.length === 1 ? '' : 'a'}</p>
+
+    <button class="btn btn-primary" onclick="openTaxonomyItemModal('${type}', null)" style="margin-bottom: 20px;">
+      ${icon('plus')}Lisää uusi
+    </button>
+
+    ${items.map((item, i) => `
+      <div class="taxonomy-row">
+        <div class="icon-wrap">${icon(item.icon || 'square')}</div>
+        <div class="text">
+          <div class="name">${escapeHtml(item.name)}</div>
+          <div class="sub">${usageMap[item.name] ? `Käytössä ${usageMap[item.name]} ${t.usage}` : 'Ei käytössä'}</div>
+        </div>
+        <div class="tax-actions">
+          <button class="tax-action-btn" onclick="moveTaxonomy('${type}', '${item.id}', -1)" ${i === 0 ? 'disabled' : ''} aria-label="Siirrä ylös">${icon('chevron-up')}</button>
+          <button class="tax-action-btn" onclick="moveTaxonomy('${type}', '${item.id}', 1)" ${i === items.length - 1 ? 'disabled' : ''} aria-label="Siirrä alas">${icon('chevron-down')}</button>
+          <button class="tax-action-btn" onclick="openTaxonomyItemModal('${type}', '${item.id}')" aria-label="Muokkaa">${icon('pencil')}</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
+}
+
+async function moveTaxonomy(type, id, direction) {
+  const items = await getTaxonomy(type);
+  const idx = items.findIndex(i => i.id === id);
+  if (idx === -1) return;
+  const newIdx = idx + direction;
+  if (newIdx < 0 || newIdx >= items.length) return;
+  // Vaihda paikkoja ja päivitä order-arvot
+  [items[idx], items[newIdx]] = [items[newIdx], items[idx]];
+  for (let i = 0; i < items.length; i++) {
+    items[i].order = i;
+    await dbPut('taxonomies', items[i]);
+  }
+  await refreshTaxonomyCache();
+  render();
+}
+
+async function openTaxonomyItemModal(type, id) {
+  const existing = id ? await dbGet('taxonomies', id) : null;
+  const titles = {
+    spaceType: { single: 'tilatyyppi', example: 'esim. aitta, vaja, sauna' },
+    maintenanceCategory: { single: 'kategoria', example: 'esim. Aurinkopaneelit, Hälytysjärjestelmä' }
+  };
+  const t = titles[type];
+
+  openModal(`
+    <div class="modal-title">${existing ? 'Muokkaa' : 'Uusi'} ${t.single}</div>
+    <div class="field"><label>Nimi</label>
+      <input type="text" id="taxName" value="${escapeHtml(existing?.name || '')}" placeholder="${t.example}">
+    </div>
+    <div class="field"><label>Ikoni</label>
+      <div class="icon-picker" id="iconPicker">
+        ${TAXONOMY_ICON_PALETTE.map(ic => `
+          <button class="icon-option ${(existing?.icon || 'square') === ic ? 'selected' : ''}" data-icon="${ic}" onclick="selectIcon('${ic}')">
+            ${icon(ic)}
+          </button>
+        `).join('')}
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveTaxonomy('${type}', ${existing ? `'${id}'` : 'null'})">Tallenna</button>
+    </div>
+
+    ${existing ? `
+      <div style="margin-top: 16px;">
+        <button class="btn btn-danger" onclick="deleteTaxonomy('${type}', '${id}', '${escapeHtml(existing.name)}')">${icon('trash-2')}Poista</button>
+      </div>
+    ` : ''}
+  `);
+}
+
+let selectedIcon = null;
+function selectIcon(name) {
+  selectedIcon = name;
+  document.querySelectorAll('#iconPicker .icon-option').forEach(el => {
+    el.classList.toggle('selected', el.dataset.icon === name);
+  });
+}
+
+async function saveTaxonomy(type, id) {
+  const name = document.getElementById('taxName').value.trim();
+  if (!name) { toast('Anna nimi'); return; }
+  const selected = document.querySelector('#iconPicker .icon-option.selected');
+  const iconName = selected ? selected.dataset.icon : 'square';
+
+  if (id) {
+    const item = await dbGet('taxonomies', id);
+    const oldName = item.name;
+    item.name = name;
+    item.icon = iconName;
+    await dbPut('taxonomies', item);
+    // Jos nimi muuttui, päivitä viittaukset
+    if (oldName !== name) await renameTaxonomyUsages(type, oldName, name);
+  } else {
+    const existing = await getTaxonomy(type);
+    await dbPut('taxonomies', {
+      id: uid(), type, name, icon: iconName,
+      order: existing.length, created: Date.now()
+    });
+  }
+  await refreshTaxonomyCache();
+  closeModal();
+  toast('Tallennettu');
+  render();
+}
+
+async function renameTaxonomyUsages(type, oldName, newName) {
+  if (type === 'spaceType') {
+    const spaces = await dbAll('spaces');
+    for (const s of spaces) {
+      if (s.type === oldName) { s.type = newName; await dbPut('spaces', s); }
+    }
+  } else if (type === 'maintenanceCategory') {
+    const items = await dbAll('maintenanceItems');
+    for (const it of items) {
+      if (it.category === oldName) { it.category = newName; await dbPut('maintenanceItems', it); }
+    }
+  }
+}
+
+async function deleteTaxonomy(type, id, name) {
+  // Tarkista käyttömäärä
+  let usage = 0;
+  let fallbackOptions = [];
+  if (type === 'spaceType') {
+    const spaces = await dbAll('spaces');
+    usage = spaces.filter(s => s.type === name).length;
+    fallbackOptions = (await getTaxonomy(type)).filter(t => t.id !== id);
+  } else {
+    const items = await dbAll('maintenanceItems');
+    usage = items.filter(i => i.category === name).length;
+    fallbackOptions = (await getTaxonomy(type)).filter(t => t.id !== id);
+  }
+
+  if (usage === 0) {
+    if (!confirm(`Poistetaanko "${name}"?`)) return;
+    await dbDel('taxonomies', id);
+    await refreshTaxonomyCache();
+    closeModal();
+    toast('Poistettu');
+    render();
+    return;
+  }
+
+  // Jos käytössä, kysy mihin siirretään
+  const fallbackList = fallbackOptions.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('');
+  openModal(`
+    <div class="modal-title">Poista "${escapeHtml(name)}"?</div>
+    <div class="modal-subtitle">Tällä luokituksella on ${usage} käyttökohdetta. Mihin ne siirretään?</div>
+    <div class="field"><label>Siirrä kohteeseen</label>
+      <select id="fallbackTo">
+        <option value="">— Tyhjä (poista luokitus) —</option>
+        ${fallbackList}
+      </select>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-danger" onclick="confirmDeleteTaxonomy('${type}', '${id}', '${escapeHtml(name)}')">Poista</button>
+    </div>
+  `);
+}
+
+async function confirmDeleteTaxonomy(type, id, name) {
+  const fallback = document.getElementById('fallbackTo').value || null;
+  // Päivitä viittaukset
+  if (type === 'spaceType') {
+    const spaces = await dbAll('spaces');
+    for (const s of spaces) {
+      if (s.type === name) { s.type = fallback; await dbPut('spaces', s); }
+    }
+  } else {
+    const items = await dbAll('maintenanceItems');
+    for (const it of items) {
+      if (it.category === name) { it.category = fallback || 'Muu'; await dbPut('maintenanceItems', it); }
+    }
+  }
+  await dbDel('taxonomies', id);
+  await refreshTaxonomyCache();
+  closeModal();
+  toast('Poistettu');
+  render();
 }
 
 // ============================================================
@@ -1631,13 +1979,14 @@ async function deleteProperty(id) {
 }
 
 // Lisää tila
-function openAddSpaceModal(parentId) {
+async function openAddSpaceModal(parentId) {
+  const types = await getTaxonomy('spaceType');
   openModal(`
     <div class="modal-title">Uusi tila</div>
     <div class="modal-subtitle">${parentId ? 'Alatila' : 'Päätason tila'}</div>
     <div class="field"><label>Nimi</label><input type="text" id="spaceName" placeholder="esim. Sauna, Keittiö"></div>
     <div class="field"><label>Tyyppi</label>
-      <select id="spaceType">${SPACE_TYPES.map(t => `<option value="${t}">${t}</option>`).join('')}</select>
+      <select id="spaceType">${types.map(t => `<option value="${escapeHtml(t.name)}">${escapeHtml(t.name)}</option>`).join('')}</select>
     </div>
     <div class="field"><label>Muistiinpanot</label><textarea id="spaceNotes"></textarea></div>
     <div class="btn-row">
@@ -1661,18 +2010,17 @@ async function saveNewSpace(parentId) {
   render();
 }
 
-function openEditSpaceModal(id) {
-  dbGet('spaces', id).then(s => {
-    openModal(`
-      <div class="modal-title">Muokkaa tilaa</div>
-      <div class="field"><label>Nimi</label><input type="text" id="spaceName" value="${escapeHtml(s.name)}"></div>
-      <div class="field"><label>Tyyppi</label><select id="spaceType">${SPACE_TYPES.map(t => `<option value="${t}" ${t === s.type ? 'selected' : ''}>${t}</option>`).join('')}</select></div>
-      <div class="field"><label>Muistiinpanot</label><textarea id="spaceNotes">${escapeHtml(s.notes || '')}</textarea></div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
-        <button class="btn btn-primary" onclick="saveEditedSpace('${id}')">Tallenna</button>
-      </div>`);
-  });
+async function openEditSpaceModal(id) {
+  const [s, types] = await Promise.all([dbGet('spaces', id), getTaxonomy('spaceType')]);
+  openModal(`
+    <div class="modal-title">Muokkaa tilaa</div>
+    <div class="field"><label>Nimi</label><input type="text" id="spaceName" value="${escapeHtml(s.name)}"></div>
+    <div class="field"><label>Tyyppi</label><select id="spaceType">${types.map(t => `<option value="${escapeHtml(t.name)}" ${t.name === s.type ? 'selected' : ''}>${escapeHtml(t.name)}</option>`).join('')}</select></div>
+    <div class="field"><label>Muistiinpanot</label><textarea id="spaceNotes">${escapeHtml(s.notes || '')}</textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveEditedSpace('${id}')">Tallenna</button>
+    </div>`);
 }
 
 async function saveEditedSpace(id) {
@@ -1708,38 +2056,40 @@ async function deleteSpace(id) {
 }
 
 // Lisää huoltokohde
-function openAddMaintenanceModal(spaceId) {
-  dbWhere('spaces', 'propertyId', state.currentPropertyId).then(spaces => {
-    openModal(`
-      <div class="modal-title">Uusi huoltokohde</div>
-      <div class="modal-subtitle">Lisää jotain mitä pitää muistaa huoltaa</div>
-      <div class="field"><label>Nimi</label><input type="text" id="mName" placeholder="esim. Ilmanvaihtosuodatin"></div>
-      <div class="field"><label>Tila</label>
-        <select id="mSpace">
-          <option value="">Ei tilaa</option>
-          ${spaces.map(s => `<option value="${s.id}" ${s.id === spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+async function openAddMaintenanceModal(spaceId) {
+  const [spaces, categories] = await Promise.all([
+    dbWhere('spaces', 'propertyId', state.currentPropertyId),
+    getTaxonomy('maintenanceCategory')
+  ]);
+  openModal(`
+    <div class="modal-title">Uusi huoltokohde</div>
+    <div class="modal-subtitle">Lisää jotain mitä pitää muistaa huoltaa</div>
+    <div class="field"><label>Nimi</label><input type="text" id="mName" placeholder="esim. Ilmanvaihtosuodatin"></div>
+    <div class="field"><label>Tila</label>
+      <select id="mSpace">
+        <option value="">Ei tilaa</option>
+        ${spaces.map(s => `<option value="${s.id}" ${s.id === spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Kategoria</label>
+      <select id="mCategory">${categories.map(c => `<option value="${escapeHtml(c.name)}">${escapeHtml(c.name)}</option>`).join('')}</select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Huoltoväli</label><input type="number" id="mInterval" placeholder="6" min="1" value="6"></div>
+      <div class="field"><label>Yksikkö</label>
+        <select id="mIntervalUnit">
+          <option value="months">kuukautta</option>
+          <option value="years">vuotta</option>
+          <option value="days">päivää</option>
         </select>
       </div>
-      <div class="field"><label>Kategoria</label>
-        <select id="mCategory">${Object.keys(CATEGORY_ICON).map(k => `<option>${k}</option>`).join('')}</select>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Huoltoväli</label><input type="number" id="mInterval" placeholder="6" min="1" value="6"></div>
-        <div class="field"><label>Yksikkö</label>
-          <select id="mIntervalUnit">
-            <option value="months">kuukautta</option>
-            <option value="years">vuotta</option>
-            <option value="days">päivää</option>
-          </select>
-        </div>
-      </div>
-      <div class="field"><label>Edellinen huolto</label><input type="date" id="mLastDate" value="${today()}"></div>
-      <div class="field"><label>Muistiinpanot</label><textarea id="mNotes"></textarea></div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
-        <button class="btn btn-primary" onclick="saveNewMaintenance()">Tallenna</button>
-      </div>`);
-  });
+    </div>
+    <div class="field"><label>Edellinen huolto</label><input type="date" id="mLastDate" value="${today()}"></div>
+    <div class="field"><label>Muistiinpanot</label><textarea id="mNotes"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveNewMaintenance()">Tallenna</button>
+    </div>`);
 }
 
 async function saveNewMaintenance() {
@@ -1763,37 +2113,40 @@ async function saveNewMaintenance() {
   render();
 }
 
-function openEditMaintenanceModal(id) {
-  Promise.all([dbGet('maintenanceItems', id), dbWhere('spaces', 'propertyId', state.currentPropertyId)]).then(([item, spaces]) => {
-    openModal(`
-      <div class="modal-title">Muokkaa huoltokohdetta</div>
-      <div class="field"><label>Nimi</label><input type="text" id="mName" value="${escapeHtml(item.name)}"></div>
-      <div class="field"><label>Tila</label>
-        <select id="mSpace">
-          <option value="">Ei tilaa</option>
-          ${spaces.map(s => `<option value="${s.id}" ${s.id === item.spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+async function openEditMaintenanceModal(id) {
+  const [item, spaces, categories] = await Promise.all([
+    dbGet('maintenanceItems', id),
+    dbWhere('spaces', 'propertyId', state.currentPropertyId),
+    getTaxonomy('maintenanceCategory')
+  ]);
+  openModal(`
+    <div class="modal-title">Muokkaa huoltokohdetta</div>
+    <div class="field"><label>Nimi</label><input type="text" id="mName" value="${escapeHtml(item.name)}"></div>
+    <div class="field"><label>Tila</label>
+      <select id="mSpace">
+        <option value="">Ei tilaa</option>
+        ${spaces.map(s => `<option value="${s.id}" ${s.id === item.spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field"><label>Kategoria</label>
+      <select id="mCategory">${categories.map(c => `<option value="${escapeHtml(c.name)}" ${c.name === item.category ? 'selected' : ''}>${escapeHtml(c.name)}</option>`).join('')}</select>
+    </div>
+    <div class="field-row">
+      <div class="field"><label>Huoltoväli</label><input type="number" id="mInterval" value="${item.interval || ''}"></div>
+      <div class="field"><label>Yksikkö</label>
+        <select id="mIntervalUnit">
+          <option value="months" ${item.intervalUnit === 'months' ? 'selected' : ''}>kuukautta</option>
+          <option value="years" ${item.intervalUnit === 'years' ? 'selected' : ''}>vuotta</option>
+          <option value="days" ${item.intervalUnit === 'days' ? 'selected' : ''}>päivää</option>
         </select>
       </div>
-      <div class="field"><label>Kategoria</label>
-        <select id="mCategory">${Object.keys(CATEGORY_ICON).map(k => `<option ${k === item.category ? 'selected' : ''}>${k}</option>`).join('')}</select>
-      </div>
-      <div class="field-row">
-        <div class="field"><label>Huoltoväli</label><input type="number" id="mInterval" value="${item.interval || ''}"></div>
-        <div class="field"><label>Yksikkö</label>
-          <select id="mIntervalUnit">
-            <option value="months" ${item.intervalUnit === 'months' ? 'selected' : ''}>kuukautta</option>
-            <option value="years" ${item.intervalUnit === 'years' ? 'selected' : ''}>vuotta</option>
-            <option value="days" ${item.intervalUnit === 'days' ? 'selected' : ''}>päivää</option>
-          </select>
-        </div>
-      </div>
-      <div class="field"><label>Edellinen huolto</label><input type="date" id="mLastDate" value="${item.lastDate || ''}"></div>
-      <div class="field"><label>Muistiinpanot</label><textarea id="mNotes">${escapeHtml(item.notes || '')}</textarea></div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
-        <button class="btn btn-primary" onclick="saveEditedMaintenance('${id}')">Tallenna</button>
-      </div>`);
-  });
+    </div>
+    <div class="field"><label>Edellinen huolto</label><input type="date" id="mLastDate" value="${item.lastDate || ''}"></div>
+    <div class="field"><label>Muistiinpanot</label><textarea id="mNotes">${escapeHtml(item.notes || '')}</textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveEditedMaintenance('${id}')">Tallenna</button>
+    </div>`);
 }
 
 async function saveEditedMaintenance(id) {
@@ -2079,6 +2432,19 @@ async function importData(e) {
       await dbPut(store, it);
     }
   }
+  // Jos vanhassa varmuuskopiossa ei ole luokituksia, lisää oletukset
+  const taxonomiesAfter = await dbAll('taxonomies');
+  if (taxonomiesAfter.length === 0) {
+    for (const [type, items] of Object.entries(DEFAULT_TAXONOMIES)) {
+      for (let i = 0; i < items.length; i++) {
+        await dbPut('taxonomies', {
+          id: uid(), type, name: items[i].name, icon: items[i].icon,
+          order: i, created: Date.now()
+        });
+      }
+    }
+  }
+  await refreshTaxonomyCache();
   toast('Tuotu onnistuneesti');
   e.target.value = '';
   closeModal();
@@ -2091,6 +2457,16 @@ async function resetData() {
   if (!confirm('Tämä poistaa KAIKKI tiedot pysyvästi. Jatketaanko?')) return;
   if (!confirm('Oletko varma? Tätä ei voi perua.')) return;
   for (const store of STORES) await dbClear(store);
+  // Palauta oletusluokitukset
+  for (const [type, items] of Object.entries(DEFAULT_TAXONOMIES)) {
+    for (let i = 0; i < items.length; i++) {
+      await dbPut('taxonomies', {
+        id: uid(), type, name: items[i].name, icon: items[i].icon,
+        order: i, created: Date.now()
+      });
+    }
+  }
+  await refreshTaxonomyCache();
   state.currentPropertyId = null;
   clearStack();
   closeModal();
@@ -2103,6 +2479,20 @@ async function resetData() {
 // ============================================================
 async function init() {
   db = await openDB();
+
+  // Alusta luokitukset oletuksilla jos taulu on tyhjä
+  const existingTaxonomies = await dbAll('taxonomies');
+  if (existingTaxonomies.length === 0) {
+    for (const [type, items] of Object.entries(DEFAULT_TAXONOMIES)) {
+      for (let i = 0; i < items.length; i++) {
+        await dbPut('taxonomies', {
+          id: uid(), type, name: items[i].name, icon: items[i].icon,
+          order: i, created: Date.now()
+        });
+      }
+    }
+  }
+  await refreshTaxonomyCache();
 
   const properties = await dbAll('properties');
   if (properties.length === 0) {
