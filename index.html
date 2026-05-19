@@ -64,7 +64,44 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-#app { max-width: 520px; margin: 0 auto; min-height: 100vh; padding-bottom: 96px; background: var(--bg-soft); }
+#app { max-width: 520px; margin: 0 auto; min-height: 100vh; padding-bottom: 96px; background: var(--bg-soft); transition: opacity 0.3s ease; }
+
+/* --- Splash --- */
+#splash {
+  position: fixed; inset: 0;
+  background: #2563eb;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 9999;
+  transition: opacity 0.4s ease;
+}
+#splash.fade-out { opacity: 0; pointer-events: none; }
+.splash-content {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 18px;
+  animation: splash-in 0.5s ease both;
+}
+@keyframes splash-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.splash-icon {
+  width: 110px; height: 110px;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.15));
+}
+.splash-title {
+  font-family: 'Inter', sans-serif;
+  font-size: 38px;
+  font-weight: 700;
+  color: white;
+  letter-spacing: -0.03em;
+}
+.splash-status {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.75);
+  font-weight: 500;
+  margin-top: 6px;
+  min-height: 18px;
+}
 
 /* --- Top bar (kevyt, ei iso hero) --- */
 .topbar {
@@ -709,7 +746,29 @@ body {
 </style>
 </head>
 <body>
-<div id="app">
+<div id="splash">
+  <div class="splash-content">
+    <svg class="splash-icon" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <rect width="200" height="200" rx="44" fill="white"/>
+      <g stroke="#2563eb" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <!-- Talo -->
+        <path d="M55 110 L100 70 L130 92 L130 75 L142 75 L142 100 L150 110"/>
+        <path d="M62 105 L62 145"/>
+        <path d="M150 110 L150 145"/>
+        <!-- Pohja / kumpare -->
+        <path d="M40 150 Q100 138 165 150"/>
+        <!-- Savu piipusta -->
+        <path d="M138 70 Q142 62 138 55 Q134 48 140 42" stroke-width="5"/>
+        <!-- Ovi -->
+        <path d="M88 145 L88 125 L112 125 L112 145" stroke-width="5"/>
+      </g>
+    </svg>
+    <div class="splash-title">Taloni</div>
+    <div class="splash-status" id="splashStatus">Käynnistetään…</div>
+  </div>
+</div>
+
+<div id="app" style="opacity: 0;">
   <header class="topbar" id="topbar"></header>
   <div id="backNav"></div>
   <div class="content" id="content"></div>
@@ -724,7 +783,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.6.2';
+const APP_VERSION = '0.7.0';
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
@@ -3161,86 +3220,148 @@ async function init() {
     const propId = uid();
     await dbPut('properties', {
       id: propId, name: 'Kotini', type: 'Omakotitalo',
-      address: 'Esimerkkitie 5', notes: 'Rakennettu 2015',
+      address: 'Esimerkkitie 5', notes: 'Rakennettu 2015, 142 m², kaksikerroksinen, maalämpö.',
       created: Date.now()
     });
-    const pihaId = uid(), paaId = uid(), saunaId = uid(), autotalliId = uid();
-    const khId = uid(), keittioId = uid();
-    await dbPut('spaces', { id: pihaId, propertyId: propId, parentId: null, name: 'Piha-alue', type: 'piha', created: Date.now() });
-    await dbPut('spaces', { id: paaId, propertyId: propId, parentId: null, name: 'Päärakennus', type: 'rakennus', created: Date.now() });
-    await dbPut('spaces', { id: saunaId, propertyId: propId, parentId: null, name: 'Pihasauna', type: 'sauna', created: Date.now() });
-    await dbPut('spaces', { id: autotalliId, propertyId: propId, parentId: null, name: 'Autotalli/varasto', type: 'autotalli', created: Date.now() });
-    await dbPut('spaces', { id: khId, propertyId: propId, parentId: paaId, name: 'Kodinhoitohuone', type: 'huone', created: Date.now() });
-    await dbPut('spaces', { id: keittioId, propertyId: propId, parentId: paaId, name: 'Keittiö', type: 'keittiö', created: Date.now() });
 
+    // === Tilat ===
+    const pihaId = uid(), paaId = uid(), saunaId = uid(), autotalliId = uid();
+    const khId = uid(), keittioId = uid(), olohuoneId = uid(), khpId = uid();
+    const makuuhuoneId = uid(), terassiId = uid(), varastoId = uid();
+    await dbPut('spaces', { id: pihaId, propertyId: propId, parentId: null, name: 'Piha-alue', type: 'piha', notes: 'Tontin koko 1200 m². Pohjoisreuna metsää, etelään aurinkoinen nurmikko.', created: Date.now() });
+    await dbPut('spaces', { id: paaId, propertyId: propId, parentId: null, name: 'Päärakennus', type: 'rakennus', notes: 'Hirsirunko, peltikate, kolmilasiset ikkunat.', created: Date.now() });
+    await dbPut('spaces', { id: saunaId, propertyId: propId, parentId: null, name: 'Pihasauna', type: 'sauna', notes: 'Erillinen pihasauna 18 m². Rakennettu 2018.', created: Date.now() });
+    await dbPut('spaces', { id: autotalliId, propertyId: propId, parentId: null, name: 'Autotalli/varasto', type: 'autotalli', notes: 'Lämmittämätön, kaksi autopaikkaa + varastotila.', created: Date.now() });
+    await dbPut('spaces', { id: terassiId, propertyId: propId, parentId: paaId, name: 'Terassi', type: 'terassi', notes: 'Lautaterassi 24 m², etelään.', created: Date.now() });
+    await dbPut('spaces', { id: khId, propertyId: propId, parentId: paaId, name: 'Kodinhoitohuone', type: 'huone', notes: 'Sisältää ilmanvaihtokoneen ja maalämpövaraajan.', created: Date.now() });
+    await dbPut('spaces', { id: keittioId, propertyId: propId, parentId: paaId, name: 'Keittiö', type: 'keittiö', notes: 'IKEA Metod, 2018 asennettu.', created: Date.now() });
+    await dbPut('spaces', { id: olohuoneId, propertyId: propId, parentId: paaId, name: 'Olohuone', type: 'huone', notes: 'Avoin yhteys keittiöön.', created: Date.now() });
+    await dbPut('spaces', { id: khpId, propertyId: propId, parentId: paaId, name: 'Kylpyhuone', type: 'kylpyhuone', notes: 'Vesieristys 2015.', created: Date.now() });
+    await dbPut('spaces', { id: makuuhuoneId, propertyId: propId, parentId: paaId, name: 'Päämakuuhuone', type: 'huone', created: Date.now() });
+    await dbPut('spaces', { id: varastoId, propertyId: propId, parentId: autotalliId, name: 'Työkaluvarasto', type: 'varasto', notes: 'Hyllyt, työpöytä, sähköjohdot.', created: Date.now() });
+
+    // === Laitteet ===
+    const apkId = uid(), ivkId = uid(), kiuasId = uid(), maalampoId = uid();
+    const pesukoneId = uid(), kuivausId = uid(), liesiId = uid(), jaakaappiId = uid();
+    const tvId = uid(), ulkogrilliId = uid();
+
+    await dbPut('devices', { id: apkId, propertyId: propId, spaceId: keittioId, name: 'Astianpesukone',
+      info: 'Bosch SMV4HCX48E\nSarjanumero: FD9912345678\nOstettu: 12.6.2023, Gigantti\nTakuu päättyy: 12.6.2025\nHinta: 599 €\n\nKäyttöohje sähköpostissa, ladattu tähän asiakirjoihin.', created: Date.now() });
+
+    await dbPut('devices', { id: ivkId, propertyId: propId, spaceId: khId, name: 'Ilmanvaihtokone',
+      info: 'Vallox 110 MV\nAsennettu 2015 rakennuksen yhteydessä\nSuodattimet F7, vaihto kahdesti vuodessa.\n\nKevätsuodatin: maaliskuussa\nSyyssuodatin: lokakuussa', created: Date.now() });
+
+    await dbPut('devices', { id: kiuasId, propertyId: propId, spaceId: saunaId, name: 'Saunan kiuas',
+      info: 'Harvia Forte AF9\nTeho: 9 kW, sähkö\nAsennettu 2018\nKivien vaihto suositellaan 3 vuoden välein.\n\nMyyjä: Saunamaailma Oy', created: Date.now() });
+
+    await dbPut('devices', { id: maalampoId, propertyId: propId, spaceId: khId, name: 'Maalämpöpumppu',
+      info: 'NIBE F1226-8\nTeho: 8 kW\nPorausreikä: 180 m\nAsennettu rakennusvaiheessa 2015\nHuolto vuosittain (NIBE-huolto).', created: Date.now() });
+
+    await dbPut('devices', { id: pesukoneId, propertyId: propId, spaceId: khId, name: 'Pyykinpesukone',
+      info: 'Miele WCG370\nOstettu 2021, Verkkokauppa.com\nTakuu päättyi 2024.', created: Date.now() });
+
+    await dbPut('devices', { id: kuivausId, propertyId: propId, spaceId: khId, name: 'Kuivausrumpu',
+      info: 'Bosch WTW85460FG\nLämpöpumppukuivuri.\nOstettu 2020.', created: Date.now() });
+
+    await dbPut('devices', { id: liesiId, propertyId: propId, spaceId: keittioId, name: 'Liesi',
+      info: 'Electrolux EKI64500AX, induktiokeittotaso + uuni\nAsennettu 2018', created: Date.now() });
+
+    await dbPut('devices', { id: jaakaappiId, propertyId: propId, spaceId: keittioId, name: 'Jääkaappi-pakastin',
+      info: 'Samsung RB37J5005SA\nOstettu 2018.', created: Date.now() });
+
+    await dbPut('devices', { id: tvId, propertyId: propId, spaceId: olohuoneId, name: 'Televisio',
+      info: 'LG OLED55C2 (55")\nOstettu 11/2022, Power\nTakuu päättyy 11/2027 (laajennettu)', created: Date.now() });
+
+    await dbPut('devices', { id: ulkogrilliId, propertyId: propId, spaceId: terassiId, name: 'Sähkögrilli',
+      info: 'Weber Pulse 2000\nOstettu 2023.', created: Date.now() });
+
+    // === Huoltokohteet ===
     const items = [
-      { name: 'Ilmanvaihtosuodattimet', category: 'LVI', spaceId: khId, interval: 6, intervalUnit: 'months', lastDate: '2025-09-15', notes: 'F7-suodatin, 2 kpl.' },
-      { name: 'Takan nuohous', category: 'Lämmitys', spaceId: paaId, interval: 1, intervalUnit: 'years', lastDate: '2025-04-10', notes: 'Nuohooja: Mäkelä, p. 040-1234567' },
-      { name: 'Salaojien tarkistus', category: 'Piha', spaceId: pihaId, interval: 1, intervalUnit: 'years', lastDate: '2024-10-20', notes: 'Tarkasta pohjoispuoli.' },
-      { name: 'Vesikaton tarkistus', category: 'Julkisivu', spaceId: paaId, interval: 1, intervalUnit: 'years', lastDate: '2025-05-01', notes: 'Pellit, läpiviennit, sadevesijärjestelmä.' }
+      // Yleisiä, tilakohtaisia
+      { name: 'Ilmanvaihtosuodattimet', category: 'LVI', spaceId: khId, deviceId: ivkId, interval: 6, intervalUnit: 'months', lastDate: '2025-09-15', notes: 'F7-suodatin, 2 kpl. Hankinta: Motonet tai verkkokauppa.' },
+      { name: 'Takan nuohous', category: 'Lämmitys', spaceId: olohuoneId, interval: 1, intervalUnit: 'years', lastDate: '2025-04-10', notes: 'Nuohooja: Mäkelä, p. 040-1234567' },
+      { name: 'Salaojien tarkistus', category: 'Piha', spaceId: pihaId, interval: 1, intervalUnit: 'years', lastDate: '2024-10-20', notes: 'Tarkasta pohjoispuoli erityisesti, sinne kasaantuu lehtiä.' },
+      { name: 'Vesikaton tarkistus', category: 'Julkisivu', spaceId: paaId, interval: 1, intervalUnit: 'years', lastDate: '2025-05-01', notes: 'Pellit, läpiviennit, sadevesijärjestelmä.' },
+      { name: 'Räystäskourujen puhdistus', category: 'Julkisivu', spaceId: paaId, interval: 1, intervalUnit: 'years', lastDate: '2025-10-15', notes: 'Pohjoispuolella kerääntyy männynneulasia.' },
+      { name: 'Lipputangon tarkistus', category: 'Piha', spaceId: pihaId, interval: 1, intervalUnit: 'years', lastDate: '2025-05-01', notes: 'Maalattu 2022, tarkasta naulan kunto vuosittain.' },
+      { name: 'Terassin öljyäminen', category: 'Piha', spaceId: terassiId, interval: 2, intervalUnit: 'years', lastDate: '2024-06-01', notes: 'Tikkurila Valtti Terassiöljy, 2,7 L riittää.' },
+      { name: 'Vesieristyksen tarkistus', category: 'LVI', spaceId: khpId, interval: 5, intervalUnit: 'years', lastDate: '2024-08-12', notes: 'Visuaalinen tarkistus saumoista.' },
+
+      // Laitteille
+      { name: 'Kiukaan kivien vaihto', category: 'Lämmitys', spaceId: saunaId, deviceId: kiuasId, interval: 3, intervalUnit: 'years', lastDate: '2024-06-15', notes: 'Vaihto suositellaan 3 vuoden välein.' },
+      { name: 'Astianpesukoneen suolan lisäys', category: 'Laitteet', spaceId: keittioId, deviceId: apkId, interval: 3, intervalUnit: 'months', lastDate: '2026-02-20', notes: 'Suolaa kaupasta. Huuhtelukirkaste-säiliön voi täyttää samalla.' },
+      { name: 'Maalämpöpumpun vuosihuolto', category: 'Lämmitys', spaceId: khId, deviceId: maalampoId, interval: 1, intervalUnit: 'years', lastDate: '2025-09-10', notes: 'NIBE-huolto. Tarkasta paine, suodattimet, glykolitaso.' },
+      { name: 'Liesituulettimen suodattimen puhdistus', category: 'Laitteet', spaceId: keittioId, interval: 3, intervalUnit: 'months', lastDate: '2026-01-20', notes: 'Tiskikoneessa pesu.' },
+      { name: 'Pyykinpesukoneen pumpun siivilän puhdistus', category: 'Laitteet', spaceId: khId, deviceId: pesukoneId, interval: 6, intervalUnit: 'months', lastDate: '2025-11-15', notes: 'Tyhjennä napit, kolikot, hammastikut...' },
+      { name: 'Kuivausrummun nukkasiivilän tyhjennys', category: 'Laitteet', spaceId: khId, deviceId: kuivausId, interval: 1, intervalUnit: 'months', lastDate: '2026-04-20', notes: 'Joka käytön jälkeen suositellaan.' }
     ];
     for (const it of items) {
       await dbPut('maintenanceItems', {
         id: uid(), propertyId: propId, ...it,
+        deviceId: it.deviceId || null,
         nextDate: calcNextDate(it.lastDate, it.interval, it.intervalUnit),
         created: Date.now()
       });
     }
 
-    // Demo-laitteet
-    const apkId = uid(), ivkId = uid(), kiuasId = uid();
-    await dbPut('devices', {
-      id: apkId, propertyId: propId, spaceId: keittioId,
-      name: 'Astianpesukone',
-      info: 'Bosch SMV4HCX48E\nSarjanumero: FD9912345678\nOstettu: 12.6.2023, Gigantti\nTakuu päättyy: 12.6.2025\nHinta: 599 €',
-      created: Date.now()
-    });
-    await dbPut('devices', {
-      id: ivkId, propertyId: propId, spaceId: khId,
-      name: 'Ilmanvaihtokone',
-      info: 'Vallox 110 MV\nAsennettu 2015 rakennuksen yhteydessä\nSuodattimet F7, vaihto kahdesti vuodessa',
-      created: Date.now()
-    });
-    await dbPut('devices', {
-      id: kiuasId, propertyId: propId, spaceId: saunaId,
-      name: 'Saunan kiuas',
-      info: 'Harvia Forte AF9\nTeho: 9 kW\nAsennettu 2018\nKivien vaihto suositellaan 3 vuoden välein',
-      created: Date.now()
-    });
+    // === Huoltohistoria (kirjattu jo tehdyt) ===
+    // Etsi huoltokohteita ID:n perusteella seuraavalle vaiheelle
+    const maintItems = await dbWhere('maintenanceItems', 'propertyId', propId);
+    const findItem = (name) => maintItems.find(i => i.name === name);
 
-    // Yksi laitteeseen liitetty huoltokohde + yksi "yleinen" laitehuolto
-    await dbPut('maintenanceItems', {
-      id: uid(), propertyId: propId, deviceId: kiuasId, spaceId: saunaId,
-      name: 'Kiukaan kivien vaihto', category: 'Lämmitys',
-      interval: 3, intervalUnit: 'years', lastDate: '2024-06-15',
-      nextDate: calcNextDate('2024-06-15', 3, 'years'),
-      notes: 'Vaihto suositellaan 3 vuoden välein.',
-      created: Date.now()
-    });
-    await dbPut('maintenanceItems', {
-      id: uid(), propertyId: propId, deviceId: apkId, spaceId: keittioId,
-      name: 'Astianpesukoneen suolan lisäys', category: 'Laitteet',
-      interval: 3, intervalUnit: 'months', lastDate: '2026-02-20',
-      nextDate: calcNextDate('2026-02-20', 3, 'months'),
-      notes: 'Suolaa kaupasta. Huuhtelukirkaste-säiliön voi täyttää samalla.',
-      created: Date.now()
-    });
+    const ivItem = findItem('Ilmanvaihtosuodattimet');
+    if (ivItem) {
+      await dbPut('maintenanceLogs', { id: uid(), itemId: ivItem.id, date: '2025-09-15', what: 'Vaihdettu F7-suodatin, 2 kpl. Edellinen oli melko likainen.', by: 'Itse', photos: [], created: Date.now() });
+      await dbPut('maintenanceLogs', { id: uid(), itemId: ivItem.id, date: '2025-03-20', what: 'Kevätvaihto. Suodattimet ostettu Motonetista.', by: 'Itse', photos: [], created: Date.now() });
+    }
+    const nuohousItem = findItem('Takan nuohous');
+    if (nuohousItem) {
+      await dbPut('maintenanceLogs', { id: uid(), itemId: nuohousItem.id, date: '2025-04-10', what: 'Vuosinuohous. Kaikki ok, ei ongelmia.', by: 'Mäkelä', photos: [], created: Date.now() });
+    }
+    const maaItem = findItem('Maalämpöpumpun vuosihuolto');
+    if (maaItem) {
+      await dbPut('maintenanceLogs', { id: uid(), itemId: maaItem.id, date: '2025-09-10', what: 'Vuosihuolto. Glykolin paine ok, suodattimet puhdistettu. Pumpun toiminta normaali.', by: 'NIBE-huolto', photos: [], created: Date.now() });
+    }
+    const terassiItem = findItem('Terassin öljyäminen');
+    if (terassiItem) {
+      await dbPut('maintenanceLogs', { id: uid(), itemId: terassiItem.id, date: '2024-06-01', what: 'Terassi pesty ja öljytty kahdesti. Valtti Terassiöljy, sävy ruskea.', by: 'Itse', photos: [], created: Date.now() });
+    }
+    const kivetItem = findItem('Kiukaan kivien vaihto');
+    if (kivetItem) {
+      await dbPut('maintenanceLogs', { id: uid(), itemId: kivetItem.id, date: '2024-06-15', what: 'Vanhat kivet ulos, uudet sisään (oliviinikivet, 20 kg). Tarkasta seuraavalla kerralla ohennettava.', by: 'Itse', photos: [], created: Date.now() });
+    }
 
-    // Demo-päiväkirjamerkintöjä
-    await dbPut('journalEntries', {
-      id: uid(), propertyId: propId, deviceId: apkId,
-      date: '2026-03-12',
-      title: 'Pumppu jumissa',
-      text: 'Astianpesukone ei lähtenyt päälle. Suodatin oli täynnä ruoantähteitä — puhdistuksen jälkeen alkoi taas toimia.',
-      photos: [], created: Date.now()
-    });
-    await dbPut('journalEntries', {
-      id: uid(), propertyId: propId, spaceId: pihaId,
-      date: '2025-09-22',
-      title: 'Syyssiivous',
-      text: 'Lehdet haravoitu, sadevesikaivot puhdistettu. Etupiha kuntoon talvea varten.',
-      photos: [], created: Date.now()
-    });
+    // === Päiväkirjamerkinnät ===
+    const journals = [
+      { deviceId: apkId, date: '2026-04-12', title: 'Pumppu jumissa',
+        text: 'Astianpesukone ei lähtenyt päälle aamulla. Suodatin oli täynnä ruoantähteitä — puhdistuksen jälkeen alkoi taas toimia normaalisti.\n\nMuistutus itselle: tarkista suodatin kuukausittain!' },
+      { spaceId: pihaId, date: '2025-09-22', title: 'Syyssiivous',
+        text: 'Lehdet haravoitu, sadevesikaivot puhdistettu. Etupiha kuntoon talvea varten. Käytetty noin 3 tuntia.' },
+      { spaceId: paaId, date: '2025-11-08', title: 'Ulko-oven tiivisteet',
+        text: 'Vaihdettu eteisen ulko-oven tiivisteet, vanhat olivat lähes umpeen kuluneet. Materiaali: D-profiili EPDM, 8m K-Raudasta. Vetää huomattavasti vähemmän.' },
+      { spaceId: khId, date: '2025-09-15', title: 'Vesivahingon varalta',
+        text: 'Asensin vesivahdin pesukoneen veden tuloputkeen. Hälyttää ja katkaisee veden jos vuotaa.\nLaite: Aquaguard AG-1, ostettu Verkkokauppa.com (89 €).' },
+      { deviceId: kiuasId, date: '2025-08-20', title: 'Kivien tarkistus',
+        text: 'Tarkastin saunan kivet, alkavat mennä rikki ja jauhautua. Vaihto seuraavana kesänä.' },
+      { spaceId: olohuoneId, date: '2025-12-20', title: 'Verhotanko irti',
+        text: 'Iso verhotanko olohuoneessa irrotettiin pesun ajaksi. Yksi kiinnike rikki — pitää käydä Bauhausista uusi.' },
+      { deviceId: pesukoneId, date: '2025-11-15', title: 'Siivilän puhdistus',
+        text: 'Puhdistettu pyykinpesukoneen pumpun suodatin. Siellä oli pari kolikkoa, vyön solki ja kasa nukkaa.' },
+      { spaceId: autotalliId, date: '2025-10-30', title: 'Lumitykit valmiina',
+        text: 'Lumilingosta vaihdettu öljyt ja terotettu lapa. Bensaa täyteen, valmis talvea varten.' },
+      { spaceId: khpId, date: '2025-08-12', title: 'Saumat ok',
+        text: 'Tarkastin kylpyhuoneen silikonisaumat suihkun ympärillä. Pieni tummuma kulmassa mutta ei vuotoa. Pitää huoltaa ehkä ensi vuonna.' },
+      { deviceId: maalampoId, date: '2025-09-10', title: 'Vuosihuolto tehty',
+        text: 'NIBE-huolto kävi tekemässä vuosihuollon. Kaikki ok, paineet normaalit. Lasku 285 €. Pyytänyt kuitin asiakirjoihin.' }
+    ];
+    for (const j of journals) {
+      await dbPut('journalEntries', {
+        id: uid(), propertyId: propId,
+        spaceId: j.spaceId || null, deviceId: j.deviceId || null,
+        date: j.date, title: j.title, text: j.text,
+        photos: [], created: Date.now()
+      });
+    }
   }
 
   const ls = await dbGet('settings', 'lastProperty');
@@ -3254,7 +3375,50 @@ async function init() {
   render();
 }
 
-init().catch(err => alert('Virhe alustuksessa: ' + err.message));
+// Splash-näytön käsittely + päivityksen tarkistus
+async function bootApp() {
+  const splash = document.getElementById('splash');
+  const status = document.getElementById('splashStatus');
+  const app = document.getElementById('app');
+  const startTime = Date.now();
+
+  // Aloita sovelluksen alustus
+  try {
+    status.textContent = 'Käynnistetään…';
+    await init();
+
+    // Tarkista päivitykset jos service worker on rekisteröity
+    if ('serviceWorker' in navigator) {
+      status.textContent = 'Tarkistetaan päivityksiä…';
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await reg.update();
+        }
+      } catch (e) { /* hiljaa, päivityksen tarkistus ei ole pakollinen */ }
+    }
+
+    status.textContent = 'Valmis';
+  } catch (err) {
+    status.textContent = 'Virhe käynnistyksessä';
+    alert('Virhe alustuksessa: ' + err.message);
+    return;
+  }
+
+  // Pidä splash näkyvissä vähintään 600ms jotta käyttäjä ehtii nähdä sen
+  const elapsed = Date.now() - startTime;
+  const minSplashTime = 600;
+  if (elapsed < minSplashTime) {
+    await new Promise(r => setTimeout(r, minSplashTime - elapsed));
+  }
+
+  // Sulava siirtymä sovellukseen
+  app.style.opacity = '1';
+  splash.classList.add('fade-out');
+  setTimeout(() => { splash.style.display = 'none'; }, 500);
+}
+
+bootApp();
 </script>
 </body>
 </html>
