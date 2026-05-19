@@ -537,10 +537,12 @@ body {
 .photo-add {
   aspect-ratio: 1; border: 2px dashed var(--border);
   border-radius: 10px;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
   color: var(--ink-faint); cursor: pointer; background: transparent;
+  gap: 4px;
 }
-.photo-add svg { width: 26px; height: 26px; }
+.photo-add svg { width: 24px; height: 24px; }
+.photo-add .label { font-size: 10px; font-weight: 500; }
 
 /* --- Detail hero --- */
 .detail-hero {
@@ -722,7 +724,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.6.1';
+const APP_VERSION = '0.6.2';
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
@@ -2483,10 +2485,9 @@ function openLogModal(itemId) {
     <div class="field"><label>Mitä tehtiin</label><textarea id="logWhat" placeholder="esim. Vaihdettu uusi suodatin"></textarea></div>
     <div class="field"><label>Tekijä</label><input type="text" id="logBy" placeholder="Itse / urakoitsija"></div>
     <div class="field"><label>Valokuvat</label>
-      <div class="photo-grid" id="logPhotoGrid">
-        <button class="photo-add" onclick="document.getElementById('logPhotoInput').click()">${icon('plus')}</button>
-      </div>
-      <input type="file" id="logPhotoInput" accept="image/*" style="display:none" multiple onchange="addLogPhotos(event)">
+      <div class="photo-grid" id="logPhotoGrid"></div>
+      <input type="file" id="logPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="addLogPhotos(event)">
+      <input type="file" id="logPhotoGallery" accept="image/*" style="display:none" multiple onchange="addLogPhotos(event)">
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
@@ -2495,6 +2496,7 @@ function openLogModal(itemId) {
   dbGet('maintenanceItems', itemId).then(item => {
     document.getElementById('logSubtitle').textContent = item.name;
   });
+  renderPhotoGrid();
 }
 
 async function addLogPhotos(e) {
@@ -2506,7 +2508,9 @@ async function addLogPhotos(e) {
 function renderPhotoGrid() {
   document.getElementById('logPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
     `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeFormPhoto(${i})">${icon('x')}</button></div>`
-  ).join('') + `<button class="photo-add" onclick="document.getElementById('logPhotoInput').click()">${icon('plus')}</button>`;
+  ).join('') +
+    `<button class="photo-add" onclick="document.getElementById('logPhotoCamera').click()">${icon('camera')}<span class="label">Kamera</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('logPhotoGallery').click()">${icon('image')}<span class="label">Galleria</span></button>`;
   refreshIcons();
 }
 
@@ -2742,15 +2746,15 @@ async function openAddJournalModal(context) {
       <textarea id="jText" rows="5" placeholder="Kuvaile mitä tapahtui, mitä tehtiin..."></textarea>
     </div>
     <div class="field"><label>Valokuvat</label>
-      <div class="photo-grid" id="jPhotoGrid">
-        <button class="photo-add" onclick="document.getElementById('jPhotoInput').click()">${icon('plus')}</button>
-      </div>
-      <input type="file" id="jPhotoInput" accept="image/*" style="display:none" multiple onchange="addJournalPhotos(event)">
+      <div class="photo-grid" id="jPhotoGrid"></div>
+      <input type="file" id="jPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="addJournalPhotos(event)">
+      <input type="file" id="jPhotoGallery" accept="image/*" style="display:none" multiple onchange="addJournalPhotos(event)">
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
       <button class="btn btn-primary" onclick="saveNewJournal()">Tallenna</button>
     </div>`);
+  renderJournalPhotoGrid();
 }
 
 async function addJournalPhotos(e) {
@@ -2762,7 +2766,9 @@ async function addJournalPhotos(e) {
 function renderJournalPhotoGrid() {
   document.getElementById('jPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
     `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeJournalPhoto(${i})">${icon('x')}</button></div>`
-  ).join('') + `<button class="photo-add" onclick="document.getElementById('jPhotoInput').click()">${icon('plus')}</button>`;
+  ).join('') +
+    `<button class="photo-add" onclick="document.getElementById('jPhotoCamera').click()">${icon('camera')}<span class="label">Kamera</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('jPhotoGallery').click()">${icon('image')}<span class="label">Galleria</span></button>`;
   refreshIcons();
 }
 
@@ -2863,7 +2869,8 @@ async function openEditJournalModal(id) {
     </div>
     <div class="field"><label>Valokuvat</label>
       <div class="photo-grid" id="jPhotoGrid"></div>
-      <input type="file" id="jPhotoInput" accept="image/*" style="display:none" multiple onchange="addJournalPhotos(event)">
+      <input type="file" id="jPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="addJournalPhotos(event)">
+      <input type="file" id="jPhotoGallery" accept="image/*" style="display:none" multiple onchange="addJournalPhotos(event)">
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
