@@ -686,6 +686,50 @@ body {
 .breadcrumbs svg { width: 12px; height: 12px; color: var(--ink-faint); }
 .breadcrumbs .current { color: var(--ink); font-weight: 500; }
 
+/* --- Changelog --- */
+.changelog-entry {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--border-soft);
+}
+.changelog-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-soft);
+}
+.changelog-version {
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; gap: 8px;
+}
+.changelog-current {
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--accent-soft);
+  color: var(--accent-dark);
+  padding: 2px 8px;
+  border-radius: 100px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.changelog-date {
+  font-size: 12px;
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.changelog-list {
+  margin: 0; padding-left: 18px;
+  font-size: 13.5px;
+  line-height: 1.6;
+  color: var(--ink);
+}
+.changelog-list li { margin-bottom: 4px; }
+.changelog-list li:last-child { margin-bottom: 0; }
+
 /* --- Taxonomy rows --- */
 .taxonomy-row {
   display: flex; align-items: center; gap: 12px;
@@ -783,7 +827,75 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.7.0';
+const APP_VERSION = '0.7.1';
+
+// Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
+const CHANGELOG = [
+  { version: '0.7.1', date: '2026-05-19', changes: [
+    'Splash-näytön minimiaika pidennetty 2 sekuntiin',
+    'Versiohistoria-näkymä asetuksissa (Lisää → Versiohistoria)'
+  ]},
+  { version: '0.7.0', date: '2026-05-19', changes: [
+    'Splash-näyttö sovelluksen avautuessa (Taloni-logo, päivitysten tarkistus taustalla)',
+    'Versiohistoria näkyvissä asetuksissa (tämä näkymä)',
+    'Demodataa laajennettu huomattavasti — 11 tilaa, 10 laitetta, 14 huoltokohdetta, 10 päiväkirjamerkintää, huoltohistoriaa',
+    'Korjattu: kuvien lisäykseen kaksi erillistä nappia (Kamera / Galleria)'
+  ]},
+  { version: '0.6.1', date: '2026-05-18', changes: [
+    'Etusivulle palautettu "Ajankohtaiset tehtävät" -otsikko',
+    'Asetuksiin "Tulossa olevat huollot" -aikaväli (oletus 30 päivää, voi muuttaa 1-365)',
+    'Päiväkirjamerkintöjä voi nyt muokata',
+    'Kuvien valinta toimii nyt sekä kamerasta että galleriasta'
+  ]},
+  { version: '0.6.0', date: '2026-05-17', changes: [
+    'Laitteet toiminnassa — oma kortti, vapaa tekstikenttä, huollot, päiväkirja, galleria, asiakirjat',
+    'Päiväkirja toiminnassa — koottu näkymä + tila- ja laitekohtaiset päiväkirjat',
+    'Galleria — kuvat kerätään päiväkirjamerkinnöistä',
+    'Huoltokohde voi nyt liittyä tilaan tai laitteeseen',
+    'Asiakirjat voi liittää tilaan, laitteeseen tai kiinteistöön yleisesti',
+    'Kustannuskenttä poistettu huoltomerkinnöistä — yksinkertaisempi'
+  ]},
+  { version: '0.5.0', date: '2026-05-15', changes: [
+    'Mukautettavat luokitukset asetuksissa: tilatyypit ja huoltokategoriat',
+    'Käyttäjä voi lisätä, muokata, järjestää ja poistaa luokituksia',
+    'Ikonipaletti 33 ikonia luokituksille',
+    'Turvallinen poisto: kysytään mihin käytössä olevat siirretään'
+  ]},
+  { version: '0.4.7', date: '2026-05-14', changes: [
+    'FAB-nappi (Lisää) pyöristettynä neliönä — samaa muotokieltä kuin app-ikoni',
+    'Kiinteistön valintapainike suorakaide pienillä pyöristyksillä'
+  ]},
+  { version: '0.4.6', date: '2026-05-13', changes: [
+    'Värimaailma siniseksi (#2563eb) — Modernin ammattimaisen tyylin mukainen',
+    'Fontti Inter:lle koko sovelluksessa (Fraunces-serif poistettu)',
+    'Brand-merkki yläpalkissa sininen gradientti',
+    'App-ikoni puhelimessa sininen'
+  ]},
+  { version: '0.4.5', date: '2026-05-12', changes: [
+    'Etusivun "Ajankohtaiset tehtävät" -ryhmittely: Myöhässä / Tulossa otsikoiden alle',
+    'Kortit neutraaleja — ei enää värillisiä reunaviivoja',
+    'Huoltolistan rakenne ryhmiteltyyn muotoon (Myöhässä / Tulossa / Myöhemmin)'
+  ]},
+  { version: '0.4.0', date: '2026-05-10', changes: [
+    'Ison UI-uudistuksen aloitus: moderni ammattimainen tyyli',
+    'Lucide-ikonit kautta sovelluksen',
+    'Pyöristetyt kortit, parempi typografia'
+  ]},
+  { version: '0.3.0', date: '2026-05-08', changes: [
+    'Datamallin uudistus — kiinteistöt, hierarkkiset tilat, laitteet, asiakirjat',
+    'Tuki useammalle kiinteistölle (omakotitalo + mökki yms.)',
+    'Asiakirjojen hallinta (PDF, kuvat) tallennettuna laitteelle'
+  ]},
+  { version: '0.2.0', date: '2026-05-05', changes: [
+    'Huoltokirjan perustoiminnot',
+    'PWA-asennettavuus, offline-toiminta',
+    'Service worker + päivitysilmoitukset'
+  ]},
+  { version: '0.1.0', date: '2026-05-03', changes: [
+    'Ensimmäinen versio: yhden kiinteistön huoltokirja',
+    'IndexedDB-tallennus, varmuuskopio JSON-muodossa'
+  ]}
+];
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
@@ -1185,6 +1297,7 @@ async function renderContent() {
     if (top.view === 'document') return renderDocumentDetail(top.id);
     if (top.view === 'taxonomies') return renderTaxonomyList();
     if (top.view === 'taxonomyEdit') return renderTaxonomyEdit(top.type);
+    if (top.view === 'changelog') return renderChangelog();
     if (top.view === 'journalList') return renderJournalList(top);
     if (top.view === 'gallery') return renderGallery(top);
   }
@@ -1687,8 +1800,9 @@ async function renderMore() {
       <div><div class="label">Asenna kotinäytölle</div><div class="value">PWA-asennus</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
     </div>
-    <div class="setting-row" style="cursor: default;">
-      <div><div class="label">Versio</div><div class="value">${APP_VERSION} — Touko 2026</div></div>
+    <div class="setting-row" onclick="pushView({view:'changelog'})">
+      <div><div class="label">Versiohistoria</div><div class="value">Versio ${APP_VERSION} — kaikki muutokset</div></div>
+      <div class="arrow">${icon('chevron-right')}</div>
     </div>
   `;
 }
@@ -1962,6 +2076,26 @@ async function deleteDoc(id) {
 // ============================================================
 // Luokitukset (taxonomies) — hallintanäkymät
 // ============================================================
+async function renderChangelog() {
+  const c = document.getElementById('content');
+  c.innerHTML = `
+    <h1 class="page-title">Versiohistoria</h1>
+    <p class="page-subtitle">Sovellukseen tehdyt muutokset</p>
+
+    ${CHANGELOG.map((v, idx) => `
+      <div class="changelog-entry">
+        <div class="changelog-header">
+          <span class="changelog-version">${idx === 0 ? '<span class="changelog-current">Nykyinen</span>' : ''}v${v.version}</span>
+          <span class="changelog-date">${fmtDate(v.date)}</span>
+        </div>
+        <ul class="changelog-list">
+          ${v.changes.map(ch => `<li>${escapeHtml(ch)}</li>`).join('')}
+        </ul>
+      </div>
+    `).join('')}
+  `;
+}
+
 async function renderTaxonomyList() {
   const c = document.getElementById('content');
   c.innerHTML = `
@@ -3405,9 +3539,9 @@ async function bootApp() {
     return;
   }
 
-  // Pidä splash näkyvissä vähintään 600ms jotta käyttäjä ehtii nähdä sen
+  // Pidä splash näkyvissä vähintään 2000ms jotta käyttäjä ehtii nähdä sen
   const elapsed = Date.now() - startTime;
-  const minSplashTime = 600;
+  const minSplashTime = 2000;
   if (elapsed < minSplashTime) {
     await new Promise(r => setTimeout(r, minSplashTime - elapsed));
   }
