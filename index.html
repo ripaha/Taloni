@@ -722,7 +722,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.6.0';
+const APP_VERSION = '0.6.1';
 
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
@@ -1040,7 +1040,13 @@ let state = {
   stack: [],
   formPhotos: [],
   formDocFile: null,
+  upcomingDays: 30  // päivissä — luetaan asetuksista, oletus 30
 };
+
+async function loadAppSettings() {
+  const s = await dbGet('settings', 'upcomingDays');
+  if (s && typeof s.value === 'number') state.upcomingDays = s.value;
+}
 
 function pushView(view) { state.stack.push(view); render(); }
 function popView() { state.stack.pop(); render(); }
@@ -1173,7 +1179,7 @@ async function renderHome() {
   items.sort((a, b) => !a.nextDate ? 1 : !b.nextDate ? -1 : a.nextDate.localeCompare(b.nextDate));
 
   const overdue = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d < 0; });
-  const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= 30; });
+  const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= state.upcomingDays; });
   const projects = (await dbWhere('projects', 'propertyId', state.currentPropertyId)).filter(p => p.status === 'käynnissä');
 
   document.getElementById('fab').style.display = 'flex';
@@ -1183,12 +1189,13 @@ async function renderHome() {
     <p class="page-subtitle">${escapeHtml(property.address || property.type || '')}</p>
 
     ${(overdue.length + soon.length) > 0 ? `
+      <div class="section-title">Ajankohtaiset tehtävät</div>
       ${overdue.length > 0 ? `
         <div class="group-title urgent">Myöhässä</div>
         ${overdue.map(it => renderMaintenanceCard(it)).join('')}
       ` : ''}
       ${soon.length > 0 ? `
-        <div class="group-title soon">Tulossa</div>
+        <div class="group-title soon">Tulossa ${state.upcomingDays} päivän sisään</div>
         ${soon.map(it => renderMaintenanceCard(it)).join('')}
       ` : ''}
     ` : items.length > 0 ? `
@@ -1635,8 +1642,8 @@ async function renderMaintenanceList() {
   document.getElementById('fab').style.display = 'flex';
 
   const overdue = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d < 0; });
-  const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= 30; });
-  const later = items.filter(i => { const d = daysUntil(i.nextDate); return d === null || d > 30; });
+  const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= state.upcomingDays; });
+  const later = items.filter(i => { const d = daysUntil(i.nextDate); return d === null || d > state.upcomingDays; });
 
   c.innerHTML = `
     <h1 class="page-title">Huollot</h1>
@@ -2479,7 +2486,7 @@ function openLogModal(itemId) {
       <div class="photo-grid" id="logPhotoGrid">
         <button class="photo-add" onclick="document.getElementById('logPhotoInput').click()">${icon('plus')}</button>
       </div>
-      <input type="file" id="logPhotoInput" accept="image/*" capture="environment" style="display:none" multiple onchange="addLogPhotos(event)">
+      <input type="file" id="logPhotoInput" accept="image/*" style="display:none" multiple onchange="addLogPhotos(event)">
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
@@ -2738,7 +2745,7 @@ async function openAddJournalModal(context) {
       <div class="photo-grid" id="jPhotoGrid">
         <button class="photo-add" onclick="document.getElementById('jPhotoInput').click()">${icon('plus')}</button>
       </div>
-      <input type="file" id="jPhotoInput" accept="image/*" capture="environment" style="display:none" multiple onchange="addJournalPhotos(event)">
+      <input type="file" id="jPhotoInput" accept="image/*" style="display:none" multiple onchange="addJournalPhotos(event)">
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
@@ -2811,9 +2818,84 @@ async function openJournalDetail(id) {
 
     <div class="btn-row" style="margin-top: 20px;">
       <button class="btn btn-ghost" onclick="closeModal()">Sulje</button>
+      <button class="btn btn-secondary" onclick="openEditJournalModal('${id}')">${icon('pencil')}Muokkaa</button>
+    </div>
+    <div style="margin-top: 10px;">
       <button class="btn btn-danger" onclick="deleteJournal('${id}')">${icon('trash-2')}Poista</button>
     </div>
   `);
+}
+
+async function openEditJournalModal(id) {
+  const entry = await dbGet('journalEntries', id);
+  if (!entry) return;
+  // Kopioi nykyiset kuvat työtilaan, jotta voi poistaa/lisätä
+  state.formPhotos = [...(entry.photos || [])];
+
+  const spaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
+  const devices = await dbWhere('devices', 'propertyId', state.currentPropertyId);
+
+  let currentLink = '';
+  if (entry.spaceId) currentLink = 'space:' + entry.spaceId;
+  else if (entry.deviceId) currentLink = 'device:' + entry.deviceId;
+
+  const options = [
+    '<option value="">— Valitse —</option>',
+    ...(spaces.length > 0 ? ['<optgroup label="Tilat">'] : []),
+    ...spaces.map(s => `<option value="space:${s.id}" ${currentLink === 'space:' + s.id ? 'selected' : ''}>${escapeHtml(s.name)}</option>`),
+    ...(spaces.length > 0 ? ['</optgroup>'] : []),
+    ...(devices.length > 0 ? ['<optgroup label="Laitteet">'] : []),
+    ...devices.map(d => `<option value="device:${d.id}" ${currentLink === 'device:' + d.id ? 'selected' : ''}>${escapeHtml(d.name)}</option>`),
+    ...(devices.length > 0 ? ['</optgroup>'] : [])
+  ];
+
+  openModal(`
+    <div class="modal-title">Muokkaa merkintää</div>
+    <div class="field"><label>Liittyy</label>
+      <select id="jLink">${options.join('')}</select>
+    </div>
+    <div class="field"><label>Päivämäärä</label><input type="date" id="jDate" value="${entry.date}"></div>
+    <div class="field"><label>Otsikko (valinnainen)</label>
+      <input type="text" id="jTitle" value="${escapeHtml(entry.title || '')}">
+    </div>
+    <div class="field"><label>Teksti</label>
+      <textarea id="jText" rows="5">${escapeHtml(entry.text || '')}</textarea>
+    </div>
+    <div class="field"><label>Valokuvat</label>
+      <div class="photo-grid" id="jPhotoGrid"></div>
+      <input type="file" id="jPhotoInput" accept="image/*" style="display:none" multiple onchange="addJournalPhotos(event)">
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveEditedJournal('${id}')">Tallenna</button>
+    </div>`);
+  renderJournalPhotoGrid();
+}
+
+async function saveEditedJournal(id) {
+  const entry = await dbGet('journalEntries', id);
+  if (!entry) return;
+  const linkVal = document.getElementById('jLink').value;
+  if (!linkVal) { toast('Valitse mihin merkintä liittyy'); return; }
+  const date = document.getElementById('jDate').value;
+  if (!date) { toast('Anna päivämäärä'); return; }
+  const text = document.getElementById('jText').value.trim();
+  const title = document.getElementById('jTitle').value.trim();
+
+  let spaceId = null, deviceId = null;
+  if (linkVal.startsWith('space:')) spaceId = linkVal.slice(6);
+  else if (linkVal.startsWith('device:')) deviceId = linkVal.slice(7);
+
+  entry.spaceId = spaceId;
+  entry.deviceId = deviceId;
+  entry.date = date;
+  entry.title = title;
+  entry.text = text;
+  entry.photos = state.formPhotos;
+  await dbPut('journalEntries', entry);
+  closeModal();
+  toast('Tallennettu');
+  render();
 }
 
 async function deleteJournal(id) {
@@ -2919,6 +3001,17 @@ async function openSettingsModal() {
   openModal(`
     <div class="modal-title">Asetukset</div>
 
+    <div class="section-title">Etusivu</div>
+    <div class="field">
+      <label>Näytä etusivulla tulossa olevat huollot</label>
+      <div style="display: flex; align-items: center; gap: 10px;">
+        <input type="number" id="setUpcomingDays" value="${state.upcomingDays}" min="1" max="365" style="width: 100px;">
+        <span style="color: var(--ink-soft); font-size: 14px;">päivän sisään</span>
+      </div>
+      <div class="field-help">Oletus 30 päivää. Esim. 50 = näyttää myös 50 päivän päässä olevat huollot.</div>
+    </div>
+    <button class="btn btn-primary" onclick="saveUpcomingDays()" style="margin-bottom: 8px;">Tallenna</button>
+
     <div class="section-title">Tallennustila</div>
     <div class="setting-row" style="cursor: default;">
       <div><div class="label">Käytössä</div><div class="value">${sizeText}</div></div>
@@ -2936,6 +3029,14 @@ async function openSettingsModal() {
     <div class="btn-row" style="margin-top: 24px;">
       <button class="btn btn-ghost" onclick="closeModal()">Sulje</button>
     </div>`);
+}
+
+async function saveUpcomingDays() {
+  const val = parseInt(document.getElementById('setUpcomingDays').value);
+  if (!val || val < 1 || val > 365) { toast('Anna luku 1–365'); return; }
+  state.upcomingDays = val;
+  await dbPut('settings', { key: 'upcomingDays', value: val });
+  toast('Tallennettu');
 }
 
 function blobToBase64(blob) {
@@ -3046,6 +3147,7 @@ async function init() {
     }
   }
   await refreshTaxonomyCache();
+  await loadAppSettings();
 
   const properties = await dbAll('properties');
   if (properties.length === 0) {

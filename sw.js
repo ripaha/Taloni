@@ -2,7 +2,7 @@
 // Tämä tiedosto pyörii selaimessa taustalla ja hallinnoi välimuistia.
 // Aina kun sovellus päivitetään, vaihda CACHE_VERSION numero korkeammaksi.
 
-const CACHE_VERSION = 'v0.6.0';
+const CACHE_VERSION = 'v0.6.1';
 const CACHE_NAME = `taloni-${CACHE_VERSION}`;
 
 // Tiedostot joita välimuistiin tallennetaan asennuksen yhteydessä.
