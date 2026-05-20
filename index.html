@@ -1592,13 +1592,12 @@ async function renderSpaceView(spaceId) {
       journals.slice(0, 3).map(j => renderJournalCard(j, false)).join('') +
       (journals.length > 3 ? `<div style="text-align: center; padding: 8px;"><span class="action" style="font-size: 14px; color: var(--accent); cursor: pointer;" onclick="pushView({view:'journalList', spaceId:'${spaceId}'})">Näytä kaikki ${journals.length}</span></div>` : '')}
 
-    ${journalPhotoCount > 0 ? `
-      <div class="section-title">
-        <span>Galleria (${journalPhotoCount})</span>
-        <span class="action" onclick="pushView({view:'gallery', spaceId:'${spaceId}'})">Avaa</span>
-      </div>
-      ${renderGalleryPreview(journals)}
-    ` : ''}
+    <div class="section-title">
+      <span>Galleria${journalPhotoCount > 0 ? ` (${journalPhotoCount})` : ''}</span>
+      ${journalPhotoCount > 0 ? `<span class="action" onclick="pushView({view:'gallery', spaceId:'${spaceId}'})">Avaa</span>` : ''}
+    </div>
+    ${journalPhotoCount === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei kuvia</div>` :
+      renderGalleryPreview(journals)}
 
     <div class="section-title">
       <span>Asiakirjat${docs.length > 0 ? ` (${docs.length})` : ''}</span>
@@ -2072,13 +2071,12 @@ async function renderDeviceDetail(id) {
       journals.slice(0, 3).map(j => renderJournalCard(j, false)).join('') +
       (journals.length > 3 ? `<div style="text-align: center; padding: 8px;"><span class="action" style="font-size: 14px; color: var(--accent); cursor: pointer;" onclick="pushView({view:'journalList', deviceId:'${id}'})">Näytä kaikki ${journals.length}</span></div>` : '')}
 
-    ${journalPhotoCount > 0 ? `
-      <div class="section-title">
-        <span>Galleria (${journalPhotoCount})</span>
-        <span class="action" onclick="pushView({view:'gallery', deviceId:'${id}'})">Avaa</span>
-      </div>
-      ${renderGalleryPreview(journals)}
-    ` : ''}
+    <div class="section-title">
+      <span>Galleria${journalPhotoCount > 0 ? ` (${journalPhotoCount})` : ''}</span>
+      ${journalPhotoCount > 0 ? `<span class="action" onclick="pushView({view:'gallery', deviceId:'${id}'})">Avaa</span>` : ''}
+    </div>
+    ${journalPhotoCount === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei kuvia</div>` :
+      renderGalleryPreview(journals)}
 
     <div class="section-title">
       <span>Asiakirjat${docs.length > 0 ? ` (${docs.length})` : ''}</span>
