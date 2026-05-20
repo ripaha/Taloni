@@ -582,7 +582,71 @@ body {
 .photo-add svg { width: 24px; height: 24px; }
 .photo-add .label { font-size: 10px; font-weight: 500; }
 
-/* --- Detail hero --- */
+/* --- Yhteystiedot & Muistutukset --- */
+.contact-card, .reminder-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+}
+.contact-card-header, .reminder-card-header {
+  display: flex; align-items: flex-start; gap: 12px;
+}
+.contact-icon, .reminder-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.contact-icon { background: var(--accent-pale); color: var(--accent); }
+.reminder-icon { background: #fef3c7; color: #92400e; }
+.contact-card-info, .reminder-card-info { flex: 1; min-width: 0; }
+.contact-card-name, .reminder-card-name {
+  font-size: 15px; font-weight: 600;
+  color: var(--ink); margin: 0 0 3px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.contact-badge, .reminder-badge {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 7px; border-radius: 3px;
+  background: var(--accent-soft); color: var(--accent-dark);
+}
+.reminder-badge { background: #fef3c7; color: #92400e; }
+.contact-card-divider, .reminder-card-divider {
+  border: none; border-top: 1px solid var(--border-soft);
+  margin: 10px 0;
+}
+.contact-fields, .reminder-fields {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 16px;
+}
+.contact-field-label, .reminder-field-label {
+  font-size: 11px; color: var(--ink-soft); margin: 0 0 1px;
+}
+.contact-field-value, .reminder-field-value {
+  font-size: 13px; color: var(--ink); margin: 0;
+}
+.contact-notes, .reminder-notes {
+  background: var(--bg-soft); border-radius: var(--radius-sm);
+  padding: 8px 12px; margin-top: 10px;
+}
+.contact-notes-label, .reminder-notes-label {
+  font-size: 11px; color: var(--ink-soft); margin: 0 0 2px;
+}
+.contact-notes-value, .reminder-notes-value {
+  font-size: 13px; color: var(--ink); margin: 0;
+}
+.reminder-alert {
+  background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: var(--radius); padding: 12px 16px;
+  margin-bottom: 12px;
+}
+.reminder-alert-row {
+  display: flex; align-items: flex-start; gap: 10px;
+}
+.reminder-alert-icon { color: #d97706; margin-top: 1px; }
+.reminder-alert-text { flex: 1; }
+.reminder-alert-title { font-size: 14px; font-weight: 600; color: #78350f; margin: 0 0 2px; }
+.reminder-alert-sub { font-size: 12px; color: #92400e; margin: 0; }
 .detail-hero {
   background: linear-gradient(135deg, var(--accent-pale) 0%, var(--accent-soft) 100%);
   border-radius: var(--radius);
@@ -853,10 +917,18 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.7.2';
+const APP_VERSION = '0.8.0';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.8.0', date: '2026-05-20', changes: [
+    'Yhteystiedot: rooli, nimi, yritys, puhelin, lisätiedot — kiinteistökohtaiset',
+    'Otsikkologiikka: jos nimi puuttuu, yritys nousee pääotsikoksi',
+    'Muistutukset: toistuvat tapahtumat (joka X päivä/viikko/kuukausi/vuosi)',
+    'Muistutukset: näytä etusivulla X päivää ennen valittavissa',
+    'Etusivu: muistutuspalkki näkyy kun tapahtuma lähestyy',
+    'Versiohistoria: tiekartta tulevista ominaisuuksista'
+  ]},
   { version: '0.7.2', date: '2026-05-20', changes: [
     'Galleria nimetty uudelleen → Valokuvat kaikkialla',
     'Valokuvien lisäys suoraan kortilla ilman popup-ikkunaa',
@@ -1040,11 +1112,11 @@ async function installApp() {
 // IndexedDB
 // ============================================================
 const DB_NAME = 'taloni';
-const DB_VERSION = 2;
+const DB_VERSION = 3;
 let db = null;
 
 const STORES = ['properties', 'spaces', 'devices', 'maintenanceItems', 'maintenanceLogs',
-                'journalEntries', 'projects', 'documents', 'contacts', 'meters', 'meterReadings',
+                'journalEntries', 'projects', 'documents', 'contacts', 'reminders', 'meters', 'meterReadings',
                 'taxonomies', 'settings'];
 
 function openDB() {
@@ -1101,6 +1173,10 @@ function openDB() {
         s.createIndex('type', 'type');
       }
       if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+      if (!db.objectStoreNames.contains('reminders')) {
+        const s = db.createObjectStore('reminders', { keyPath: 'id' });
+        s.createIndex('propertyId', 'propertyId');
+      }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
@@ -1330,6 +1406,7 @@ async function renderContent() {
     if (top.view === 'documentsList') return renderDocumentsList();
     if (top.view === 'devicesList') return renderDevicesList();
     if (top.view === 'contactsList') return renderContactsList();
+    if (top.view === 'remindersList') return renderRemindersList();
     if (top.view === 'maintenanceItem') return renderMaintenanceItemDetail(top.id);
     if (top.view === 'device') return renderDeviceDetail(top.id);
     if (top.view === 'document') return renderDocumentDetail(top.id);
@@ -1394,11 +1471,36 @@ async function renderHome() {
   const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= state.upcomingDays; });
   const projects = (await dbWhere('projects', 'propertyId', state.currentPropertyId)).filter(p => p.status === 'käynnissä');
 
+  // Haetaan lähestyvät muistutukset
+  const allReminders = await dbWhere('reminders', 'propertyId', state.currentPropertyId);
+  const dueReminders = allReminders.filter(isDueSoon).sort((a, b) => calcNextReminderDate(a) - calcNextReminderDate(b));
+
   document.getElementById('fab').style.display = 'flex';
+
+  const remindersHtml = dueReminders.length > 0 ? `
+    <div class="section-title"><span>Muistutukset</span><span class="action" onclick="pushView({view:'remindersList'})">${icon('chevron-right')}</span></div>
+    ${dueReminders.map(r => {
+      const next = calcNextReminderDate(r);
+      const today = new Date(); today.setHours(0,0,0,0);
+      const diff = Math.round((next - today) / 86400000);
+      const whenText = diff === 0 ? 'Tänään' : diff === 1 ? 'Huomenna' : `${diff} päivän päästä`;
+      return `<div class="reminder-alert">
+        <div class="reminder-alert-row">
+          <div class="reminder-alert-icon">${icon('bell')}</div>
+          <div class="reminder-alert-text">
+            <div class="reminder-alert-title">${escapeHtml(r.title)}</div>
+            <div class="reminder-alert-sub">${whenText} · ${fmtDate(next.toISOString().slice(0,10))}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  ` : '';
 
   c.innerHTML = `
     <h1 class="page-title">${escapeHtml(property.name)}</h1>
     <p class="page-subtitle">${escapeHtml(property.address || property.type || '')}</p>
+
+    ${remindersHtml}
 
     ${(overdue.length + soon.length) > 0 ? `
       <div class="section-title">Ajankohtaiset tehtävät</div>
@@ -1841,6 +1943,7 @@ async function renderMore() {
   const docs = await dbWhere('documents', 'propertyId', state.currentPropertyId);
   const devices = await dbWhere('devices', 'propertyId', state.currentPropertyId);
   const contacts = await dbWhere('contacts', 'propertyId', state.currentPropertyId);
+  const reminders = await dbWhere('reminders', 'propertyId', state.currentPropertyId);
 
   c.innerHTML = `
     <h1 class="page-title">Lisää</h1>
@@ -1862,7 +1965,11 @@ async function renderMore() {
       </div>
       <div class="menu-tile" onclick="pushView({view:'contactsList'})">
         <div class="icon">${icon('phone')}</div>
-        <div><div class="label">Yhteystiedot</div><div class="sub">${contacts.length} henkilöä</div></div>
+        <div><div class="label">Yhteystiedot</div><div class="sub">${contacts.length} ${contacts.length === 1 ? 'yhteystieto' : 'yhteystietoa'}</div></div>
+      </div>
+      <div class="menu-tile" onclick="pushView({view:'remindersList'})">
+        <div class="icon">${icon('bell')}</div>
+        <div><div class="label">Muistutukset</div><div class="sub">${reminders.length} ${reminders.length === 1 ? 'muistutus' : 'muistutusta'}</div></div>
       </div>
       <div class="menu-tile" onclick="toast('Valokuvat tulossa myöhemmin')">
         <div class="icon">${icon('images')}</div>
@@ -1974,12 +2081,291 @@ async function renderDevicesList() {
   `;
 }
 
+// ── Toistuvuuslogiikka ──────────────────────────────────────────────
+function calcNextReminderDate(reminder) {
+  const today = new Date(); today.setHours(0,0,0,0);
+  const start = new Date(reminder.startDate || reminder.created || Date.now());
+  start.setHours(0,0,0,0);
+  const type = reminder.repeatType;
+  const interval = parseInt(reminder.repeatInterval) || 1;
+  let next = new Date(start);
+
+  if (type === 'days') {
+    while (next <= today) next.setDate(next.getDate() + interval);
+  } else if (type === 'weeks') {
+    while (next <= today) next.setDate(next.getDate() + 7);
+  } else if (type === 'nweeks') {
+    while (next <= today) next.setDate(next.getDate() + 7 * interval);
+  } else if (type === 'months') {
+    while (next <= today) next.setMonth(next.getMonth() + 1);
+  } else if (type === 'nmonths') {
+    while (next <= today) next.setMonth(next.getMonth() + interval);
+  } else if (type === 'years') {
+    while (next <= today) next.setFullYear(next.getFullYear() + 1);
+  }
+  return next;
+}
+
+function repeatLabel(r) {
+  const n = parseInt(r.repeatInterval) || 1;
+  switch (r.repeatType) {
+    case 'days':    return `Joka ${n}. päivä`;
+    case 'weeks':   return 'Viikoittain';
+    case 'nweeks':  return `Joka ${n}. viikko`;
+    case 'months':  return 'Kuukausittain';
+    case 'nmonths': return `Joka ${n}. kuukausi`;
+    case 'years':   return 'Vuosittain';
+    default: return '';
+  }
+}
+
+function isDueSoon(reminder) {
+  const next = calcNextReminderDate(reminder);
+  const days = parseInt(reminder.alertDays) || 1;
+  const limit = new Date(); limit.setHours(0,0,0,0);
+  limit.setDate(limit.getDate() + days);
+  return next <= limit;
+}
+
+// ── Yhteystiedot ─────────────────────────────────────────────────────
 async function renderContactsList() {
   const c = document.getElementById('content');
+  document.getElementById('fab').style.display = 'none';
+  const contacts = await dbWhere('contacts', 'propertyId', state.currentPropertyId);
+  contacts.sort((a, b) => (a.role || '').localeCompare(b.role || ''));
+
   c.innerHTML = `
     <h1 class="page-title">Yhteystiedot</h1>
-    <div class="empty"><div class="empty-icon-circle">${icon('phone')}</div><div class="empty-title">Tulossa myöhemmin</div><div class="empty-text">Nuohooja, putkimies, sähkömies...</div></div>`;
+    <p class="page-subtitle">${contacts.length} ${contacts.length === 1 ? 'yhteystieto' : 'yhteystietoa'}</p>
+    ${contacts.length === 0 ? `<div class="empty">
+      <div class="empty-icon-circle">${icon('phone')}</div>
+      <div class="empty-title">Ei yhteystietoja</div>
+      <div class="empty-text">Lisää nuohooja, putkimies, sähkömies…</div>
+    </div>` : contacts.map(renderContactCard).join('')}
+    <button class="btn btn-primary" style="width:100%; margin-top: 16px;" onclick="openAddContactModal()">${icon('plus')}Lisää yhteystieto</button>
+  `;
 }
+
+function renderContactCard(c) {
+  const title = c.name || c.company || c.role || 'Yhteystieto';
+  const showCompany = c.name && c.company;
+  return `<div class="contact-card">
+    <div class="contact-card-header">
+      <div class="contact-icon">${icon('user')}</div>
+      <div class="contact-card-info">
+        <div class="contact-card-name">${escapeHtml(title)}</div>
+        <span class="contact-badge">${escapeHtml(c.role || '–')}</span>
+      </div>
+      <div style="display:flex; gap:6px; margin-left:auto;">
+        <button class="btn btn-ghost" style="padding:4px 8px; font-size:12px;" onclick="openEditContactModal('${c.id}')">${icon('pencil')}</button>
+        <button class="btn btn-ghost" style="padding:4px 8px; font-size:12px;" onclick="deleteContact('${c.id}')">${icon('trash-2')}</button>
+      </div>
+    </div>
+    <hr class="contact-card-divider">
+    <div class="contact-fields">
+      ${showCompany ? `<div><div class="contact-field-label">Yritys</div><div class="contact-field-value">${escapeHtml(c.company)}</div></div>` : ''}
+      ${c.phone ? `<div><div class="contact-field-label">Puhelin</div><div class="contact-field-value">${escapeHtml(c.phone)}</div></div>` : ''}
+    </div>
+    ${c.notes ? `<div class="contact-notes"><div class="contact-notes-label">Lisätiedot</div><div class="contact-notes-value">${escapeHtml(c.notes)}</div></div>` : ''}
+  </div>`;
+}
+
+function openAddContactModal() {
+  openModal(`
+    <div class="modal-title">Uusi yhteystieto</div>
+    <div class="field"><label class="field-label">Rooli *</label><input class="field-input" id="cRole" placeholder="esim. Nuohooja"></div>
+    <div class="field"><label class="field-label">Nimi</label><input class="field-input" id="cName" placeholder="esim. Matti Virtanen"></div>
+    <div class="field"><label class="field-label">Yritys</label><input class="field-input" id="cCompany" placeholder="esim. Virtanen Oy"></div>
+    <div class="field"><label class="field-label">Puhelin</label><input class="field-input" id="cPhone" type="tel" placeholder="esim. 040 123 4567"></div>
+    <div class="field"><label class="field-label">Lisätiedot</label><textarea class="field-input" id="cNotes" rows="2" placeholder="Vapaamuotoinen muistiinpano"></textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveContact()">Tallenna</button>
+    </div>`);
+}
+
+function openEditContactModal(id) {
+  dbGet('contacts', id).then(c => {
+    if (!c) return;
+    openModal(`
+      <div class="modal-title">Muokkaa yhteystietoa</div>
+      <div class="field"><label class="field-label">Rooli *</label><input class="field-input" id="cRole" value="${escapeHtml(c.role||'')}"></div>
+      <div class="field"><label class="field-label">Nimi</label><input class="field-input" id="cName" value="${escapeHtml(c.name||'')}"></div>
+      <div class="field"><label class="field-label">Yritys</label><input class="field-input" id="cCompany" value="${escapeHtml(c.company||'')}"></div>
+      <div class="field"><label class="field-label">Puhelin</label><input class="field-input" id="cPhone" type="tel" value="${escapeHtml(c.phone||'')}"></div>
+      <div class="field"><label class="field-label">Lisätiedot</label><textarea class="field-input" id="cNotes" rows="2">${escapeHtml(c.notes||'')}</textarea></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveContact('${id}')">Tallenna</button>
+      </div>`);
+  });
+}
+
+async function saveContact(id) {
+  const role = document.getElementById('cRole').value.trim();
+  if (!role) { toast('Rooli on pakollinen'); return; }
+  const contact = {
+    id: id || uid(),
+    propertyId: state.currentPropertyId,
+    role,
+    name: document.getElementById('cName').value.trim(),
+    company: document.getElementById('cCompany').value.trim(),
+    phone: document.getElementById('cPhone').value.trim(),
+    notes: document.getElementById('cNotes').value.trim(),
+    created: id ? undefined : Date.now()
+  };
+  if (id) { const old = await dbGet('contacts', id); contact.created = old.created; }
+  await dbPut('contacts', contact);
+  closeModal();
+  toast(id ? 'Yhteystieto päivitetty' : 'Yhteystieto lisätty');
+  render();
+}
+
+async function deleteContact(id) {
+  if (!confirm('Poistetaanko yhteystieto?')) return;
+  await dbDelete('contacts', id);
+  toast('Yhteystieto poistettu');
+  render();
+}
+
+// ── Muistutukset ──────────────────────────────────────────────────────
+async function renderRemindersList() {
+  const c = document.getElementById('content');
+  document.getElementById('fab').style.display = 'none';
+  const reminders = await dbWhere('reminders', 'propertyId', state.currentPropertyId);
+  reminders.sort((a, b) => calcNextReminderDate(a) - calcNextReminderDate(b));
+
+  c.innerHTML = `
+    <h1 class="page-title">Muistutukset</h1>
+    <p class="page-subtitle">${reminders.length} ${reminders.length === 1 ? 'muistutus' : 'muistutusta'}</p>
+    ${reminders.length === 0 ? `<div class="empty">
+      <div class="empty-icon-circle">${icon('bell')}</div>
+      <div class="empty-title">Ei muistutuksia</div>
+      <div class="empty-text">Lisää toistuvia tapahtumia kuten jäteauto tai savunilmaisimen testaus</div>
+    </div>` : reminders.map(renderReminderCard).join('')}
+    <button class="btn btn-primary" style="width:100%; margin-top: 16px;" onclick="openAddReminderModal()">${icon('plus')}Lisää muistutus</button>
+  `;
+}
+
+function renderReminderCard(r) {
+  const next = calcNextReminderDate(r);
+  const due = isDueSoon(r);
+  return `<div class="reminder-card" style="${due ? 'border-color: #fde68a;' : ''}">
+    <div class="reminder-card-header">
+      <div class="reminder-icon">${icon('bell')}</div>
+      <div class="reminder-card-info">
+        <div class="reminder-card-name">${escapeHtml(r.title)}</div>
+        <span class="reminder-badge">${escapeHtml(repeatLabel(r))}</span>
+      </div>
+      <div style="display:flex; gap:6px; margin-left:auto;">
+        <button class="btn btn-ghost" style="padding:4px 8px; font-size:12px;" onclick="openEditReminderModal('${r.id}')">${icon('pencil')}</button>
+        <button class="btn btn-ghost" style="padding:4px 8px; font-size:12px;" onclick="deleteReminder('${r.id}')">${icon('trash-2')}</button>
+      </div>
+    </div>
+    <hr class="reminder-card-divider">
+    <div class="reminder-fields">
+      <div><div class="reminder-field-label">Seuraava</div><div class="reminder-field-value">${fmtDate(next.toISOString().slice(0,10))}</div></div>
+      <div><div class="reminder-field-label">Muistuta</div><div class="reminder-field-value">${r.alertDays} ${parseInt(r.alertDays) === 1 ? 'päivä' : 'päivää'} ennen</div></div>
+    </div>
+    ${r.notes ? `<div class="reminder-notes"><div class="reminder-notes-label">Lisätiedot</div><div class="reminder-notes-value">${escapeHtml(r.notes)}</div></div>` : ''}
+  </div>`;
+}
+
+function repeatTypeLabel(type) {
+  switch(type) {
+    case 'days': return 'päivän';
+    case 'weeks': return 'viikon';
+    case 'nweeks': return 'viikon';
+    case 'months': return 'kuukauden';
+    case 'nmonths': return 'kuukauden';
+    case 'years': return 'vuoden';
+    default: return '';
+  }
+}
+
+function reminderFormHtml(r) {
+  const types = [
+    ['days','Joka X päivä'], ['weeks','Viikoittain'], ['nweeks','Joka X viikko'],
+    ['months','Kuukausittain'], ['nmonths','Joka X kuukausi'], ['years','Vuosittain']
+  ];
+  const needsInterval = (t) => ['days','nweeks','nmonths'].includes(t);
+  const cur = r?.repeatType || 'nweeks';
+  return `
+    <div class="field"><label class="field-label">Kuvaus *</label><input class="field-input" id="rTitle" value="${escapeHtml(r?.title||'')}" placeholder="esim. Jäteauto"></div>
+    <div class="field"><label class="field-label">Aloituspäivä *</label><input class="field-input" id="rStart" type="date" value="${r?.startDate || new Date().toISOString().slice(0,10)}"></div>
+    <div class="field"><label class="field-label">Toistuvuus</label>
+      <select class="field-input" id="rType" onchange="updateReminderInterval()">
+        ${types.map(([v,l]) => `<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field" id="rIntervalRow" style="${needsInterval(cur)?'':'display:none'}">
+      <label class="field-label">Väli</label>
+      <input class="field-input" id="rInterval" type="number" min="1" max="99" value="${r?.repeatInterval||4}" placeholder="4">
+    </div>
+    <div class="field"><label class="field-label">Näytä etusivulla X päivää ennen</label><input class="field-input" id="rAlert" type="number" min="0" max="30" value="${r?.alertDays||2}"></div>
+    <div class="field"><label class="field-label">Lisätiedot</label><textarea class="field-input" id="rNotes" rows="2" placeholder="Vapaamuotoinen muistiinpano">${escapeHtml(r?.notes||'')}</textarea></div>`;
+}
+
+function updateReminderInterval() {
+  const t = document.getElementById('rType').value;
+  const row = document.getElementById('rIntervalRow');
+  if (row) row.style.display = ['days','nweeks','nmonths'].includes(t) ? '' : 'none';
+}
+
+function openAddReminderModal() {
+  openModal(`
+    <div class="modal-title">Uusi muistutus</div>
+    ${reminderFormHtml(null)}
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveReminder()">Tallenna</button>
+    </div>`);
+}
+
+function openEditReminderModal(id) {
+  dbGet('reminders', id).then(r => {
+    if (!r) return;
+    openModal(`
+      <div class="modal-title">Muokkaa muistutusta</div>
+      ${reminderFormHtml(r)}
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveReminder('${id}')">Tallenna</button>
+      </div>`);
+  });
+}
+
+async function saveReminder(id) {
+  const title = document.getElementById('rTitle').value.trim();
+  const startDate = document.getElementById('rStart').value;
+  if (!title) { toast('Kuvaus on pakollinen'); return; }
+  if (!startDate) { toast('Aloituspäivä on pakollinen'); return; }
+  const reminder = {
+    id: id || uid(),
+    propertyId: state.currentPropertyId,
+    title,
+    startDate,
+    repeatType: document.getElementById('rType').value,
+    repeatInterval: parseInt(document.getElementById('rInterval')?.value) || 1,
+    alertDays: parseInt(document.getElementById('rAlert').value) || 1,
+    notes: document.getElementById('rNotes').value.trim(),
+    created: id ? undefined : Date.now()
+  };
+  if (id) { const old = await dbGet('reminders', id); reminder.created = old.created; }
+  await dbPut('reminders', reminder);
+  closeModal();
+  toast(id ? 'Muistutus päivitetty' : 'Muistutus lisätty');
+  render();
+}
+
+async function deleteReminder(id) {
+  if (!confirm('Poistetaanko muistutus?')) return;
+  await dbDelete('reminders', id);
+  toast('Muistutus poistettu');
+  render();
+}
+
+
 
 async function renderDocumentsList() {
   const c = document.getElementById('content');
@@ -2181,7 +2567,6 @@ async function renderChangelog() {
   const c = document.getElementById('content');
 
   const roadmap = [
-    { version: '0.8', title: 'Yhteystiedot', desc: 'Nuohooja, putkimies, sähkömies — talosi tärkeät yhteyshenkilöt' },
     { version: '0.9', title: 'Kulutusseuranta', desc: 'Sähkö- ja vesilukemien seuranta, kulutusgraafit' },
     { version: '1.0', title: 'Projektit', desc: 'Remontit ja hankkeet kustannusseurantoineen' },
     { version: '1.1+', title: 'Google Drive -synkronointi', desc: 'Tietojen varmuuskopiointi ja synkronointi pilveen' }
