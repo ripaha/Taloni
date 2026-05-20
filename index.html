@@ -1650,12 +1650,11 @@ async function collectGalleryPhotos(opts) {
 }
 
 function renderGalleryPreview(photos, spaceId, deviceId) {
-  // Inline photo-add napit + esikatselukuvat samassa gridissä
   const inputId = 'galInline_' + (spaceId || deviceId || 'x');
   return `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr);">
-    <button class="photo-add" onclick="document.getElementById('${inputId}_cam').click()">${icon('camera')}<span class="label">Kamera</span></button>
-    <button class="photo-add" onclick="document.getElementById('${inputId}_gal').click()">${icon('image')}<span class="label">Galleria</span></button>
     ${photos.slice(0, 6).map(p => `<div class="photo-thumb"><img src="${URL.createObjectURL(p.blob)}"></div>`).join('')}
+    <button class="photo-add" onclick="document.getElementById('${inputId}_cam').click()">${icon('plus')}<span class="label">Kamera</span></button>
+    <button class="photo-add" onclick="document.getElementById('${inputId}_gal').click()">${icon('plus')}<span class="label">Galleria</span></button>
     <input type="file" id="${inputId}_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
     <input type="file" id="${inputId}_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
   </div>`;
@@ -1784,8 +1783,8 @@ async function renderGallery(context) {
   const photos = await collectGalleryPhotos(context);
 
   const addGrid = `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
-    <button class="photo-add" onclick="document.getElementById('galFull_cam').click()">${icon('camera')}<span class="label">Kamera</span></button>
-    <button class="photo-add" onclick="document.getElementById('galFull_gal').click()">${icon('image')}<span class="label">Galleria</span></button>
+    <button class="photo-add" onclick="document.getElementById('galFull_cam').click()">${icon('plus')}<span class="label">Kamera</span></button>
+    <button class="photo-add" onclick="document.getElementById('galFull_gal').click()">${icon('plus')}<span class="label">Galleria</span></button>
     <input type="file" id="galFull_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
     <input type="file" id="galFull_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
   </div>`;
