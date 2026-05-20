@@ -731,6 +731,31 @@ body {
 .changelog-list li { margin-bottom: 4px; }
 .changelog-list li:last-child { margin-bottom: 0; }
 
+.roadmap-section { margin-bottom: 24px; }
+.roadmap-entry {
+  background: var(--accent-pale);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border: 1px solid var(--accent-soft);
+}
+.roadmap-version {
+  font-weight: 700; font-size: 15px;
+  color: var(--accent-dark);
+  display: flex; align-items: center; gap: 8px;
+}
+.roadmap-badge {
+  font-size: 10px; font-weight: 600;
+  background: var(--accent-soft); color: var(--accent-dark);
+  padding: 2px 8px; border-radius: 100px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.roadmap-title { font-size: 14px; font-weight: 600; margin-top: 4px; }
+.roadmap-desc {
+  font-size: 13px; color: var(--ink-soft);
+  margin-top: 2px; line-height: 1.5;
+}
+
 /* --- Taxonomy rows --- */
 .taxonomy-row {
   display: flex; align-items: center; gap: 12px;
@@ -2154,10 +2179,33 @@ async function deleteDoc(id) {
 // ============================================================
 async function renderChangelog() {
   const c = document.getElementById('content');
+
+  const roadmap = [
+    { version: '0.8', title: 'Yhteystiedot', desc: 'Nuohooja, putkimies, sähkömies — talosi tärkeät yhteyshenkilöt' },
+    { version: '0.9', title: 'Kulutusseuranta', desc: 'Sähkö- ja vesilukemien seuranta, kulutusgraafit' },
+    { version: '1.0', title: 'Projektit', desc: 'Remontit ja hankkeet kustannusseurantoineen' },
+    { version: '1.1+', title: 'Google Drive -synkronointi', desc: 'Tietojen varmuuskopiointi ja synkronointi pilveen' }
+  ];
+
   c.innerHTML = `
     <h1 class="page-title">Versiohistoria</h1>
-    <p class="page-subtitle">Sovellukseen tehdyt muutokset</p>
+    <p class="page-subtitle">Tulevat ominaisuudet ja tehdyt muutokset</p>
 
+    <div class="roadmap-section">
+      <div class="section-title"><span>Tulossa</span></div>
+      ${roadmap.map(r => `
+        <div class="roadmap-entry">
+          <div class="roadmap-version">
+            v${r.version}
+            <span class="roadmap-badge">Tulossa</span>
+          </div>
+          <div class="roadmap-title">${escapeHtml(r.title)}</div>
+          <div class="roadmap-desc">${escapeHtml(r.desc)}</div>
+        </div>
+      `).join('')}
+    </div>
+
+    <div class="section-title"><span>Julkaistut versiot</span></div>
     ${CHANGELOG.map((v, idx) => `
       <div class="changelog-entry">
         <div class="changelog-header">
