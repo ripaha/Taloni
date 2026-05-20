@@ -885,10 +885,17 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.7.2';
+const APP_VERSION = '0.7.3';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.7.3', date: '2026-05-20', changes: [
+    'Galleriaan voi lisätä kuvia suoraan ilman päiväkirjamerkintää (Kamera/Galleria-napit)',
+    'Tilan galleria näyttää myös alatilojen kuvat rekursiivisesti',
+    'Galleriekuvat tallennetaan documents-storeen category=galleria',
+    'Galleriekuvat suodatetaan pois Asiakirjat-listalta',
+    'Galleria-osio näkyy aina tila- ja laitekortilla Lisää-napilla'
+  ]},
   { version: '0.7.2', date: '2026-05-20', changes: [
     'Splash-näyttö uusiksi: app-ikoni ja Taloni-teksti ylhäällä, talo-sydän-kuvitus alaosassa',
     'Jatka-nappi splash-näytössä — sovellus etenee vasta kun käyttäjä klikkaa',
@@ -1541,9 +1548,11 @@ async function renderSpaceView(spaceId) {
   journals.sort((a, b) => b.date.localeCompare(a.date));
   const breadcrumbs = await buildBreadcrumbs(space);
 
-  // Galleria: kuvat päiväkirjamerkinnöistä ja huoltomerkinnöistä + irralliset
-  const journalPhotoCount = journals.reduce((sum, j) => sum + (j.photos?.length || 0), 0);
-  const standalonePhotos = journals.filter(j => !j.text && j.photos?.length > 0).reduce((sum, j) => sum + j.photos.length, 0);
+  // Galleria: tämän tilan + alatilojen kuvat (päiväkirja + irralliset)
+  const galleryPhotos = await collectGalleryPhotos({ spaceId, includeChildren: true });
+
+  // Asiakirjat: suodata pois galleriekuvat
+  const nonGalleryDocs = docs.filter(d => d.category !== 'galleria');
 
   document.getElementById('fab').style.display = 'flex';
 
@@ -1593,18 +1602,19 @@ async function renderSpaceView(spaceId) {
       (journals.length > 3 ? `<div style="text-align: center; padding: 8px;"><span class="action" style="font-size: 14px; color: var(--accent); cursor: pointer;" onclick="pushView({view:'journalList', spaceId:'${spaceId}'})">Näytä kaikki ${journals.length}</span></div>` : '')}
 
     <div class="section-title">
-      <span>Galleria${journalPhotoCount > 0 ? ` (${journalPhotoCount})` : ''}</span>
-      ${journalPhotoCount > 0 ? `<span class="action" onclick="pushView({view:'gallery', spaceId:'${spaceId}'})">Avaa</span>` : ''}
+      <span>Galleria${galleryPhotos.length > 0 ? ` (${galleryPhotos.length})` : ''}</span>
+      <span class="action" onclick="openAddGalleryPhotoModal('${spaceId}', '')">${icon('plus')}Lisää</span>
+      ${galleryPhotos.length > 0 ? `<span class="action" onclick="pushView({view:'gallery', spaceId:'${spaceId}'})">Avaa</span>` : ''}
     </div>
-    ${journalPhotoCount === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei kuvia</div>` :
-      renderGalleryPreview(journals)}
+    ${galleryPhotos.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei kuvia</div>` :
+      renderGalleryPreview(galleryPhotos)}
 
     <div class="section-title">
-      <span>Asiakirjat${docs.length > 0 ? ` (${docs.length})` : ''}</span>
+      <span>Asiakirjat${nonGalleryDocs.length > 0 ? ` (${nonGalleryDocs.length})` : ''}</span>
       <span class="action" onclick="openAddDocModal('${spaceId}')">${icon('plus')}Lisää</span>
     </div>
-    ${docs.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei asiakirjoja</div>` :
-      docs.map(d => renderDocCard(d)).join('')}
+    ${nonGalleryDocs.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei asiakirjoja</div>` :
+      nonGalleryDocs.map(d => renderDocCard(d)).join('')}
 
     <div class="btn-row" style="margin-top: 28px;">
       <button class="btn btn-ghost" onclick="openEditSpaceModal('${spaceId}')">${icon('pencil')}Muokkaa</button>
@@ -1649,15 +1659,130 @@ function renderJournalCard(entry, showLocation) {
   </div>`;
 }
 
-function renderGalleryPreview(journals) {
-  const allPhotos = [];
-  for (const j of journals) {
-    if (j.photos) for (const p of j.photos) allPhotos.push(p);
+// Kerää tilan ja sen alatilojen kaikki spaceId:t rekursiivisesti
+function getDescendantSpaceIds(spaceId, allSpaces) {
+  const ids = [spaceId];
+  const queue = [spaceId];
+  while (queue.length > 0) {
+    const current = queue.shift();
+    for (const s of allSpaces) {
+      if (s.parentId === current && !ids.includes(s.id)) {
+        ids.push(s.id);
+        queue.push(s.id);
+      }
+    }
   }
-  if (allPhotos.length === 0) return '';
+  return ids;
+}
+
+// Kerää kaikki galleriekuvat: päiväkirjamerkintöjen kuvat + irralliset galleriekuvat (documents category=galleria)
+async function collectGalleryPhotos(opts) {
+  const photos = [];
+  let journals, galleryDocs;
+
+  if (opts.spaceId) {
+    // Hae tämän tilan + alatilojen kuvat
+    const allSpaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
+    const spaceIds = opts.includeChildren !== false
+      ? getDescendantSpaceIds(opts.spaceId, allSpaces)
+      : [opts.spaceId];
+
+    journals = [];
+    galleryDocs = [];
+    for (const sid of spaceIds) {
+      const sj = await dbWhere('journalEntries', 'spaceId', sid);
+      journals.push(...sj);
+      const sd = (await dbWhere('documents', 'spaceId', sid)).filter(d => d.category === 'galleria');
+      galleryDocs.push(...sd);
+    }
+  } else if (opts.deviceId) {
+    journals = (await dbAll('journalEntries')).filter(j => j.deviceId === opts.deviceId);
+    galleryDocs = (await dbWhere('documents', 'deviceId', opts.deviceId)).filter(d => d.category === 'galleria');
+  } else {
+    journals = await dbWhere('journalEntries', 'propertyId', state.currentPropertyId);
+    galleryDocs = (await dbWhere('documents', 'propertyId', state.currentPropertyId)).filter(d => d.category === 'galleria');
+  }
+
+  journals.sort((a, b) => b.date.localeCompare(a.date));
+  galleryDocs.sort((a, b) => (b.created || 0) - (a.created || 0));
+
+  // Päiväkirjakuvat
+  for (const e of journals) {
+    if (e.photos) {
+      for (const p of e.photos) {
+        photos.push({ blob: p, source: 'journal', entry: e });
+      }
+    }
+  }
+  // Irralliset galleriekuvat
+  for (const d of galleryDocs) {
+    if (d.blob) {
+      photos.push({ blob: d.blob, source: 'gallery', doc: d });
+    }
+  }
+
+  return photos;
+}
+
+function renderGalleryPreview(photos) {
+  if (!photos || photos.length === 0) return '';
   return `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr);">
-    ${allPhotos.slice(0, 8).map(p => `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"></div>`).join('')}
+    ${photos.slice(0, 8).map(p => `<div class="photo-thumb"><img src="${URL.createObjectURL(p.blob)}"></div>`).join('')}
   </div>`;
+}
+
+// Galleriakuvien lisäys (irralliset, ilman päiväkirjamerkintää)
+async function openAddGalleryPhotoModal(spaceId, deviceId) {
+  state.formPhotos = [];
+  openModal(`
+    <div class="modal-title">Lisää kuvia galleriaan</div>
+    <div class="modal-subtitle">Kuvat tallennetaan ilman päiväkirjamerkintää</div>
+    <div class="field">
+      <div class="btn-row">
+        <button class="btn btn-secondary" onclick="document.getElementById('galPhotoCamera').click()">${icon('camera')}Kamera</button>
+        <button class="btn btn-secondary" onclick="document.getElementById('galPhotoGallery').click()">${icon('image')}Galleria</button>
+      </div>
+      <input type="file" id="galPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="addGalleryModalPhotos(event)">
+      <input type="file" id="galPhotoGallery" accept="image/*" style="display:none" multiple onchange="addGalleryModalPhotos(event)">
+      <div class="photo-grid" id="galPhotoGrid"></div>
+    </div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveGalleryPhotos('${spaceId || ''}', '${deviceId || ''}')">Tallenna</button>
+    </div>`);
+}
+
+async function addGalleryModalPhotos(e) {
+  for (const f of Array.from(e.target.files)) state.formPhotos.push(await compressImage(f));
+  e.target.value = '';
+  document.getElementById('galPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
+    `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeGalPhoto(${i})">${icon('x')}</button></div>`
+  ).join('');
+}
+
+function removeGalPhoto(i) {
+  state.formPhotos.splice(i, 1);
+  document.getElementById('galPhotoGrid').innerHTML = state.formPhotos.map((p, idx) =>
+    `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeGalPhoto(${idx})">${icon('x')}</button></div>`
+  ).join('');
+}
+
+async function saveGalleryPhotos(spaceId, deviceId) {
+  if (state.formPhotos.length === 0) { toast('Valitse vähintään yksi kuva'); return; }
+  for (const photo of state.formPhotos) {
+    const doc = {
+      id: uid(), propertyId: state.currentPropertyId,
+      spaceId: spaceId || null, deviceId: deviceId || null,
+      title: 'Galleriakuva', category: 'galleria',
+      notes: '', fileName: 'kuva.jpg', mimeType: photo.type || 'image/jpeg',
+      size: photo.size, blob: photo, created: Date.now()
+    };
+    await dbPut('documents', doc);
+  }
+  closeModal();
+  toast(`${state.formPhotos.length} ${state.formPhotos.length === 1 ? 'kuva' : 'kuvaa'} lisätty`);
+  state.formPhotos = [];
+  render();
 }
 
 async function buildBreadcrumbs(space) {
@@ -1747,31 +1872,21 @@ async function renderJournalList(context) {
 
 async function renderGallery(context) {
   const c = document.getElementById('content');
-  let entries, title;
+  let title, addBtn = '';
 
   if (context.spaceId) {
-    entries = await dbWhere('journalEntries', 'spaceId', context.spaceId);
     const space = await dbGet('spaces', context.spaceId);
     title = space?.name || 'Tila';
+    addBtn = `<button class="btn btn-secondary" onclick="openAddGalleryPhotoModal('${context.spaceId}', '')" style="margin-bottom: 16px;">${icon('plus')}Lisää kuvia</button>`;
   } else if (context.deviceId) {
-    entries = (await dbAll('journalEntries')).filter(j => j.deviceId === context.deviceId);
     const device = await dbGet('devices', context.deviceId);
     title = device?.name || 'Laite';
+    addBtn = `<button class="btn btn-secondary" onclick="openAddGalleryPhotoModal('', '${context.deviceId}')" style="margin-bottom: 16px;">${icon('plus')}Lisää kuvia</button>`;
   } else {
-    entries = await dbWhere('journalEntries', 'propertyId', state.currentPropertyId);
     title = 'Galleria';
   }
-  entries.sort((a, b) => b.date.localeCompare(a.date));
 
-  // Kerää kaikki kuvat + niiden lähde
-  const photos = [];
-  for (const e of entries) {
-    if (e.photos) {
-      for (const p of e.photos) {
-        photos.push({ blob: p, entry: e });
-      }
-    }
-  }
+  const photos = await collectGalleryPhotos(context);
 
   if (photos.length === 0) {
     c.innerHTML = `
@@ -1779,16 +1894,24 @@ async function renderGallery(context) {
       <div class="empty">
         <div class="empty-icon-circle">${icon('images')}</div>
         <div class="empty-title">Ei kuvia</div>
-        <div class="empty-text">Lisää kuvia päiväkirjamerkintöjen yhteydessä</div>
-      </div>`;
+        <div class="empty-text">Lisää kuvia galleriaan tai päiväkirjamerkintöjen yhteydessä</div>
+      </div>
+      ${addBtn}`;
     return;
   }
 
   c.innerHTML = `
     <h1 class="page-title">${escapeHtml(title)}</h1>
     <p class="page-subtitle">Galleria · ${photos.length} ${photos.length === 1 ? 'kuva' : 'kuvaa'}</p>
+    ${addBtn}
     <div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
-      ${photos.map((p, i) => `<div class="photo-thumb" onclick="openJournalDetail('${p.entry.id}')"><img src="${URL.createObjectURL(p.blob)}"></div>`).join('')}
+      ${photos.map((p, i) => {
+        if (p.source === 'journal') {
+          return `<div class="photo-thumb" onclick="openJournalDetail('${p.entry.id}')"><img src="${URL.createObjectURL(p.blob)}"></div>`;
+        } else {
+          return `<div class="photo-thumb" onclick="pushView({view:'document', id:'${p.doc.id}'})"><img src="${URL.createObjectURL(p.blob)}"></div>`;
+        }
+      }).join('')}
     </div>
   `;
 }
@@ -1944,7 +2067,8 @@ async function renderContactsList() {
 
 async function renderDocumentsList() {
   const c = document.getElementById('content');
-  const docs = await dbWhere('documents', 'propertyId', state.currentPropertyId);
+  const allDocs = await dbWhere('documents', 'propertyId', state.currentPropertyId);
+  const docs = allDocs.filter(d => d.category !== 'galleria');
   docs.sort((a, b) => b.created - a.created);
   document.getElementById('fab').style.display = 'flex';
   c.innerHTML = `
@@ -2035,7 +2159,8 @@ async function renderDeviceDetail(id) {
   const journals = (await dbAll('journalEntries')).filter(j => j.deviceId === id);
   journals.sort((a, b) => b.date.localeCompare(a.date));
 
-  const journalPhotoCount = journals.reduce((sum, j) => sum + (j.photos?.length || 0), 0);
+  const galleryPhotos = await collectGalleryPhotos({ deviceId: id });
+  const nonGalleryDocs = docs.filter(d => d.category !== 'galleria');
 
   document.getElementById('fab').style.display = 'flex';
 
@@ -2072,18 +2197,19 @@ async function renderDeviceDetail(id) {
       (journals.length > 3 ? `<div style="text-align: center; padding: 8px;"><span class="action" style="font-size: 14px; color: var(--accent); cursor: pointer;" onclick="pushView({view:'journalList', deviceId:'${id}'})">Näytä kaikki ${journals.length}</span></div>` : '')}
 
     <div class="section-title">
-      <span>Galleria${journalPhotoCount > 0 ? ` (${journalPhotoCount})` : ''}</span>
-      ${journalPhotoCount > 0 ? `<span class="action" onclick="pushView({view:'gallery', deviceId:'${id}'})">Avaa</span>` : ''}
+      <span>Galleria${galleryPhotos.length > 0 ? ` (${galleryPhotos.length})` : ''}</span>
+      <span class="action" onclick="openAddGalleryPhotoModal('', '${id}')">${icon('plus')}Lisää</span>
+      ${galleryPhotos.length > 0 ? `<span class="action" onclick="pushView({view:'gallery', deviceId:'${id}'})">Avaa</span>` : ''}
     </div>
-    ${journalPhotoCount === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei kuvia</div>` :
-      renderGalleryPreview(journals)}
+    ${galleryPhotos.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei kuvia</div>` :
+      renderGalleryPreview(galleryPhotos)}
 
     <div class="section-title">
-      <span>Asiakirjat${docs.length > 0 ? ` (${docs.length})` : ''}</span>
+      <span>Asiakirjat${nonGalleryDocs.length > 0 ? ` (${nonGalleryDocs.length})` : ''}</span>
       <span class="action" onclick="openAddDocModal(null, '${id}')">${icon('plus')}Lisää</span>
     </div>
-    ${docs.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei asiakirjoja</div>` :
-      docs.map(d => renderDocCard(d)).join('')}
+    ${nonGalleryDocs.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei asiakirjoja</div>` :
+      nonGalleryDocs.map(d => renderDocCard(d)).join('')}
 
     <div class="btn-row" style="margin-top: 28px;">
       <button class="btn btn-ghost" onclick="openEditDeviceModal('${id}')">${icon('pencil')}Muokkaa</button>
