@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<meta name="theme-color" content="#ffffff">
+<meta name="theme-color" content="#2563eb">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -54,6 +54,7 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; overscroll-behavior-y: none; }
+html { background: #2563eb; }
 
 body {
   font-family: 'Inter', -apple-system, sans-serif;
@@ -834,7 +835,7 @@ const CHANGELOG = [
   { version: '0.7.2', date: '2026-05-20', changes: [
     'Galleria nimetty uudelleen → Valokuvat kaikkialla',
     'Valokuvien lisäys suoraan kortilla ilman popup-ikkunaa',
-    'Lisäyspainikkeet kuvien jälkeen, kamera/galleria-ikonit, tekstit "Lisää kamerasta" / "Lisää galleriasta"',
+    'Lisäyspainikkeet kuvien jälkeen, kamera/galleria-ikonit, tekstit "Ota kuva kameralla" / "Lisää galleriasta"',
     'Sama teksti päiväkirjan kuvanvalintanapeissa',
     'Tilan valokuvat näyttävät myös alatilojen kuvat rekursiivisesti',
     'Valokuvat suodatettu pois Asiakirjat-listalta',
@@ -1640,7 +1641,7 @@ function renderGalleryPreview(photos, spaceId, deviceId) {
   const inputId = 'galInline_' + (spaceId || deviceId || 'x');
   return `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr);">
     ${photos.slice(0, 6).map(p => `<div class="photo-thumb"><img src="${URL.createObjectURL(p.blob)}"></div>`).join('')}
-    <button class="photo-add" onclick="document.getElementById('${inputId}_cam').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>
+    <button class="photo-add" onclick="document.getElementById('${inputId}_cam').click()">${icon('camera')}<span class="label">Ota kuva kameralla</span></button>
     <button class="photo-add" onclick="document.getElementById('${inputId}_gal').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>
     <input type="file" id="${inputId}_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
     <input type="file" id="${inputId}_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
@@ -1770,7 +1771,7 @@ async function renderGallery(context) {
   const photos = await collectGalleryPhotos(context);
 
   const addGrid = (sid || did) ? `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
-    <button class="photo-add" onclick="document.getElementById('galFull_cam').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>
+    <button class="photo-add" onclick="document.getElementById('galFull_cam').click()">${icon('camera')}<span class="label">Ota kuva kameralla</span></button>
     <button class="photo-add" onclick="document.getElementById('galFull_gal').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>
     <input type="file" id="galFull_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
     <input type="file" id="galFull_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
@@ -2777,7 +2778,7 @@ function renderPhotoGrid() {
   document.getElementById('logPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
     `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeFormPhoto(${i})">${icon('x')}</button></div>`
   ).join('') +
-    `<button class="photo-add" onclick="document.getElementById('logPhotoCamera').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('logPhotoCamera').click()">${icon('camera')}<span class="label">Ota kuva kameralla</span></button>` +
     `<button class="photo-add" onclick="document.getElementById('logPhotoGallery').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>`;
   refreshIcons();
 }
@@ -3035,7 +3036,7 @@ function renderJournalPhotoGrid() {
   document.getElementById('jPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
     `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeJournalPhoto(${i})">${icon('x')}</button></div>`
   ).join('') +
-    `<button class="photo-add" onclick="document.getElementById('jPhotoCamera').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('jPhotoCamera').click()">${icon('camera')}<span class="label">Ota kuva kameralla</span></button>` +
     `<button class="photo-add" onclick="document.getElementById('jPhotoGallery').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>`;
   refreshIcons();
 }
@@ -3631,6 +3632,8 @@ async function bootApp() {
 
   app.style.opacity = '1';
   splash.classList.add('fade-out');
+  document.documentElement.style.background = '';
+  document.querySelector('meta[name="theme-color"]').content = '#ffffff';
   setTimeout(() => { splash.style.display = 'none'; }, 500);
 }
 
