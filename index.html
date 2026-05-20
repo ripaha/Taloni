@@ -832,11 +832,13 @@ const APP_VERSION = '0.7.2';
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
   { version: '0.7.2', date: '2026-05-20', changes: [
-    'Galleria nimetty uudelleen → Valokuvat',
-    'Valokuvien lisäys suoraan kortilla ilman popup-ikkunaa (inline Kamera/Galleria-napit)',
+    'Galleria nimetty uudelleen → Valokuvat kaikkialla',
+    'Valokuvien lisäys suoraan kortilla ilman popup-ikkunaa',
+    'Lisäyspainikkeet kuvien jälkeen, kamera/galleria-ikonit, tekstit "Lisää kamerasta" / "Lisää galleriasta"',
+    'Sama teksti päiväkirjan kuvanvalintanapeissa',
     'Tilan valokuvat näyttävät myös alatilojen kuvat rekursiivisesti',
-    'Valokuvat tallennetaan irrallisinä ilman päiväkirjamerkintää',
     'Valokuvat suodatettu pois Asiakirjat-listalta',
+    'PWA splash screen -välähdys poistettu (background_color siniseksi)',
     'Splash: status näyttää päivitystilanteen ja versionumeron',
     'Näkymän vaihto scrollaa sivun ylös'
   ]},
@@ -909,7 +911,7 @@ const CHANGELOG = [
 const manifest = {
   name: 'Taloni', short_name: 'Taloni', description: 'Kiinteistöjen huoltokirja',
   start_url: './', display: 'standalone', orientation: 'portrait',
-  background_color: '#ffffff', theme_color: '#2563eb',
+  background_color: '#2563eb', theme_color: '#2563eb',
   icons: [
     { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><rect width="192" height="192" rx="42" fill="%232563eb"/><path d="M96 46 L150 88 L150 150 L42 150 L42 88 Z" fill="none" stroke="white" stroke-width="11" stroke-linejoin="round"/></svg>', sizes: '192x192', type: 'image/svg+xml', purpose: 'any' },
     { src: 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" rx="112" fill="%232563eb"/><path d="M256 122 L400 234 L400 396 L112 396 L112 234 Z" fill="none" stroke="white" stroke-width="30" stroke-linejoin="round"/></svg>', sizes: '512x512', type: 'image/svg+xml', purpose: 'any' }
@@ -1488,7 +1490,6 @@ async function renderSpaceView(spaceId) {
   journals.sort((a, b) => b.date.localeCompare(a.date));
   const breadcrumbs = await buildBreadcrumbs(space);
 
-  // Valokuvat: tämän tilan + alatilojen kuvat
   const galleryPhotos = await collectGalleryPhotos({ spaceId, includeChildren: true });
   const nonGalleryDocs = docs.filter(d => d.category !== 'galleria');
 
@@ -1595,7 +1596,6 @@ function renderJournalCard(entry, showLocation) {
   </div>`;
 }
 
-// Kerää tilan ja sen alatilojen kaikki spaceId:t rekursiivisesti
 function getDescendantSpaceIds(spaceId, allSpaces) {
   const ids = [spaceId];
   const queue = [spaceId];
@@ -1611,18 +1611,13 @@ function getDescendantSpaceIds(spaceId, allSpaces) {
   return ids;
 }
 
-// Kerää kaikki valokuvat: päiväkirjamerkintöjen kuvat + irralliset galleriekuvat (documents category=galleria)
 async function collectGalleryPhotos(opts) {
   const photos = [];
   let journals, galleryDocs;
-
   if (opts.spaceId) {
     const allSpaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
-    const spaceIds = opts.includeChildren !== false
-      ? getDescendantSpaceIds(opts.spaceId, allSpaces)
-      : [opts.spaceId];
-    journals = [];
-    galleryDocs = [];
+    const spaceIds = opts.includeChildren !== false ? getDescendantSpaceIds(opts.spaceId, allSpaces) : [opts.spaceId];
+    journals = []; galleryDocs = [];
     for (const sid of spaceIds) {
       journals.push(...await dbWhere('journalEntries', 'spaceId', sid));
       galleryDocs.push(...(await dbWhere('documents', 'spaceId', sid)).filter(d => d.category === 'galleria'));
@@ -1634,18 +1629,10 @@ async function collectGalleryPhotos(opts) {
     journals = await dbWhere('journalEntries', 'propertyId', state.currentPropertyId);
     galleryDocs = (await dbWhere('documents', 'propertyId', state.currentPropertyId)).filter(d => d.category === 'galleria');
   }
-
   journals.sort((a, b) => b.date.localeCompare(a.date));
   galleryDocs.sort((a, b) => (b.created || 0) - (a.created || 0));
-
-  for (const e of journals) {
-    if (e.photos) {
-      for (const p of e.photos) photos.push({ blob: p, source: 'journal', entry: e });
-    }
-  }
-  for (const d of galleryDocs) {
-    if (d.blob) photos.push({ blob: d.blob, source: 'gallery', doc: d });
-  }
+  for (const e of journals) { if (e.photos) { for (const p of e.photos) photos.push({ blob: p, source: 'journal', entry: e }); } }
+  for (const d of galleryDocs) { if (d.blob) photos.push({ blob: d.blob, source: 'gallery', doc: d }); }
   return photos;
 }
 
@@ -1653,8 +1640,8 @@ function renderGalleryPreview(photos, spaceId, deviceId) {
   const inputId = 'galInline_' + (spaceId || deviceId || 'x');
   return `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr);">
     ${photos.slice(0, 6).map(p => `<div class="photo-thumb"><img src="${URL.createObjectURL(p.blob)}"></div>`).join('')}
-    <button class="photo-add" onclick="document.getElementById('${inputId}_cam').click()">${icon('plus')}<span class="label">Kamera</span></button>
-    <button class="photo-add" onclick="document.getElementById('${inputId}_gal').click()">${icon('plus')}<span class="label">Galleria</span></button>
+    <button class="photo-add" onclick="document.getElementById('${inputId}_cam').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>
+    <button class="photo-add" onclick="document.getElementById('${inputId}_gal').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>
     <input type="file" id="${inputId}_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
     <input type="file" id="${inputId}_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
   </div>`;
@@ -1782,12 +1769,12 @@ async function renderGallery(context) {
 
   const photos = await collectGalleryPhotos(context);
 
-  const addGrid = `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
-    <button class="photo-add" onclick="document.getElementById('galFull_cam').click()">${icon('plus')}<span class="label">Kamera</span></button>
-    <button class="photo-add" onclick="document.getElementById('galFull_gal').click()">${icon('plus')}<span class="label">Galleria</span></button>
+  const addGrid = (sid || did) ? `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
+    <button class="photo-add" onclick="document.getElementById('galFull_cam').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>
+    <button class="photo-add" onclick="document.getElementById('galFull_gal').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>
     <input type="file" id="galFull_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
     <input type="file" id="galFull_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
-  </div>`;
+  </div>` : '';
 
   if (photos.length === 0) {
     c.innerHTML = `
@@ -1797,7 +1784,7 @@ async function renderGallery(context) {
         <div class="empty-title">Ei kuvia</div>
         <div class="empty-text">Lisää valokuvia kamerasta tai galleriasta</div>
       </div>
-      ${sid || did ? addGrid : ''}`;
+      ${addGrid}`;
     refreshIcons();
     return;
   }
@@ -1805,9 +1792,9 @@ async function renderGallery(context) {
   c.innerHTML = `
     <h1 class="page-title">${escapeHtml(title)}</h1>
     <p class="page-subtitle">Valokuvat · ${photos.length} ${photos.length === 1 ? 'kuva' : 'kuvaa'}</p>
-    ${sid || did ? addGrid : ''}
+    ${addGrid}
     <div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
-      ${photos.map((p, i) => {
+      ${photos.map(p => {
         if (p.source === 'journal') {
           return `<div class="photo-thumb" onclick="openJournalDetail('${p.entry.id}')"><img src="${URL.createObjectURL(p.blob)}"></div>`;
         } else {
@@ -2790,8 +2777,8 @@ function renderPhotoGrid() {
   document.getElementById('logPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
     `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeFormPhoto(${i})">${icon('x')}</button></div>`
   ).join('') +
-    `<button class="photo-add" onclick="document.getElementById('logPhotoCamera').click()">${icon('camera')}<span class="label">Kamera</span></button>` +
-    `<button class="photo-add" onclick="document.getElementById('logPhotoGallery').click()">${icon('image')}<span class="label">Galleria</span></button>`;
+    `<button class="photo-add" onclick="document.getElementById('logPhotoCamera').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('logPhotoGallery').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>`;
   refreshIcons();
 }
 
@@ -3048,8 +3035,8 @@ function renderJournalPhotoGrid() {
   document.getElementById('jPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
     `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeJournalPhoto(${i})">${icon('x')}</button></div>`
   ).join('') +
-    `<button class="photo-add" onclick="document.getElementById('jPhotoCamera').click()">${icon('camera')}<span class="label">Kamera</span></button>` +
-    `<button class="photo-add" onclick="document.getElementById('jPhotoGallery').click()">${icon('image')}<span class="label">Galleria</span></button>`;
+    `<button class="photo-add" onclick="document.getElementById('jPhotoCamera').click()">${icon('camera')}<span class="label">Lisää kamerasta</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('jPhotoGallery').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>`;
   refreshIcons();
 }
 
