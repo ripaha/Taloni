@@ -70,17 +70,14 @@ body {
 #splash {
   position: fixed; inset: 0;
   background: #2563eb;
-  display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-start;
+  display: flex; align-items: center; justify-content: center;
   z-index: 9999;
   transition: opacity 0.4s ease;
-  overflow: hidden;
 }
 #splash.fade-out { opacity: 0; pointer-events: none; }
 .splash-content {
   display: flex; flex-direction: column; align-items: center;
-  gap: 14px;
-  margin-top: max(15vh, 60px);
+  gap: 18px;
   animation: splash-in 0.5s ease both;
 }
 @keyframes splash-in {
@@ -102,47 +99,8 @@ body {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.75);
   font-weight: 500;
-  margin-top: 2px;
+  margin-top: 6px;
   min-height: 18px;
-}
-.splash-continue {
-  margin-top: 28px;
-  background: white;
-  color: #2563eb;
-  border: none;
-  padding: 14px 48px;
-  border-radius: 14px;
-  font-size: 16px;
-  font-weight: 700;
-  font-family: 'Inter', sans-serif;
-  cursor: pointer;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.4s ease, transform 0.4s ease, background 0.15s ease;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-  display: none;
-}
-.splash-continue.visible {
-  display: block;
-  opacity: 1;
-  transform: translateY(0);
-}
-.splash-continue:active {
-  background: #e8eeff;
-  transform: scale(0.97);
-}
-.splash-bottom-art {
-  position: fixed;
-  bottom: -10px; left: 50%;
-  transform: translateX(-50%);
-  width: min(380px, 88vw);
-  opacity: 0;
-  animation: splash-art-in 0.8s 0.2s ease both;
-  pointer-events: none;
-}
-@keyframes splash-art-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(30px); }
-  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* --- Top bar (kevyt, ei iso hero) --- */
@@ -837,37 +795,21 @@ body {
     <svg class="splash-icon" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="200" rx="44" fill="white"/>
       <g stroke="#2563eb" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
+        <!-- Talo -->
         <path d="M55 110 L100 70 L130 92 L130 75 L142 75 L142 100 L150 110"/>
         <path d="M62 105 L62 145"/>
         <path d="M150 110 L150 145"/>
+        <!-- Pohja / kumpare -->
         <path d="M40 150 Q100 138 165 150"/>
+        <!-- Savu piipusta -->
         <path d="M138 70 Q142 62 138 55 Q134 48 140 42" stroke-width="5"/>
+        <!-- Ovi -->
         <path d="M88 145 L88 125 L112 125 L112 145" stroke-width="5"/>
       </g>
     </svg>
     <div class="splash-title">Taloni</div>
     <div class="splash-status" id="splashStatus">Käynnistetään…</div>
-    <button class="splash-continue" id="splashContinue" onclick="dismissSplash()">Jatka</button>
   </div>
-  <!-- Talo-sydän-kuvitus alaosassa -->
-  <svg class="splash-bottom-art" viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" fill="none">
-    <g stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.25">
-      <!-- Katto (kaareva kuten alkuperäisessä) -->
-      <path d="M55 210 Q120 140 220 105 Q290 140 385 210"/>
-      <!-- Vasen seinä -->
-      <path d="M88 200 L88 310"/>
-      <!-- Oikea seinä -->
-      <path d="M350 210 L350 310"/>
-      <!-- Savupiippu -->
-      <path d="M295 148 L295 100 L330 100 L330 178"/>
-      <!-- Savu -->
-      <path d="M312 95 Q322 72 310 55 Q298 38 312 20" stroke-width="10"/>
-      <!-- Sydän -->
-      <path d="M220 225 Q220 192 195 192 Q170 192 170 217 Q170 242 220 275 Q270 242 270 217 Q270 192 245 192 Q220 192 220 225 Z" stroke-width="10"/>
-      <!-- Kumpare -->
-      <path d="M5 340 Q110 305 220 310 Q330 315 435 340" stroke-width="11"/>
-    </g>
-  </svg>
 </div>
 
 <div id="app" style="opacity: 0;">
@@ -885,21 +827,18 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.7.3';
+const APP_VERSION = '0.7.2';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
-  { version: '0.7.3', date: '2026-05-20', changes: [
-    'Galleriaan voi lisätä kuvia suoraan ilman päiväkirjamerkintää (Kamera/Galleria-napit)',
-    'Tilan galleria näyttää myös alatilojen kuvat rekursiivisesti',
-    'Galleriekuvat tallennetaan documents-storeen category=galleria',
-    'Galleriekuvat suodatetaan pois Asiakirjat-listalta',
-    'Galleria-osio näkyy aina tila- ja laitekortilla Lisää-napilla'
-  ]},
   { version: '0.7.2', date: '2026-05-20', changes: [
-    'Splash-näyttö uusiksi: app-ikoni ja Taloni-teksti ylhäällä, talo-sydän-kuvitus alaosassa',
-    'Jatka-nappi splash-näytössä — sovellus etenee vasta kun käyttäjä klikkaa',
-    'Kuvitus valkoinen 25% läpinäkyvyydellä, animoituu sisään pehmeästi'
+    'Splash: status näyttää päivitystilanteen — "Uusi versio saatavilla" tai "Uusin versio käytössä (x.x.x)"',
+    'Galleriaan voi lisätä kuvia suoraan ilman päiväkirjamerkintää (Kamera/Galleria photo-add-napit)',
+    'Tilan galleria näyttää myös alatilojen kuvat rekursiivisesti',
+    'Galleriekuvat suodatetaan pois Asiakirjat-listalta',
+    'Galleria-osio näkyy aina tila- ja laitekortilla Lisää-napilla',
+    'Gallerian kuvanvalinta yhtenäistetty päiväkirjan kanssa (photo-add-tyyli)',
+    'Näkymän vaihto scrollaa sivun ylös (korjaa versiohistorian scroll-ongelma)'
   ]},
   { version: '0.7.1', date: '2026-05-19', changes: [
     'Splash-näytön minimiaika pidennetty 2 sekuntiin',
@@ -1291,8 +1230,8 @@ async function loadAppSettings() {
   if (s && typeof s.value === 'number') state.upcomingDays = s.value;
 }
 
-function pushView(view) { state.stack.push(view); render(); }
-function popView() { state.stack.pop(); render(); }
+function pushView(view) { state.stack.push(view); render(); window.scrollTo(0, 0); }
+function popView() { state.stack.pop(); render(); window.scrollTo(0, 0); }
 function clearStack() { state.stack = []; }
 
 // ============================================================
@@ -1350,6 +1289,7 @@ function switchTab(tab) {
   state.currentTab = tab;
   clearStack();
   render();
+  window.scrollTo(0, 0);
 }
 
 async function renderContent() {
@@ -1548,10 +1488,8 @@ async function renderSpaceView(spaceId) {
   journals.sort((a, b) => b.date.localeCompare(a.date));
   const breadcrumbs = await buildBreadcrumbs(space);
 
-  // Galleria: tämän tilan + alatilojen kuvat (päiväkirja + irralliset)
+  // Galleria: tämän tilan + alatilojen kuvat
   const galleryPhotos = await collectGalleryPhotos({ spaceId, includeChildren: true });
-
-  // Asiakirjat: suodata pois galleriekuvat
   const nonGalleryDocs = docs.filter(d => d.category !== 'galleria');
 
   document.getElementById('fab').style.display = 'flex';
@@ -1681,7 +1619,6 @@ async function collectGalleryPhotos(opts) {
   let journals, galleryDocs;
 
   if (opts.spaceId) {
-    // Hae tämän tilan + alatilojen kuvat
     const allSpaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
     const spaceIds = opts.includeChildren !== false
       ? getDescendantSpaceIds(opts.spaceId, allSpaces)
@@ -1706,7 +1643,6 @@ async function collectGalleryPhotos(opts) {
   journals.sort((a, b) => b.date.localeCompare(a.date));
   galleryDocs.sort((a, b) => (b.created || 0) - (a.created || 0));
 
-  // Päiväkirjakuvat
   for (const e of journals) {
     if (e.photos) {
       for (const p of e.photos) {
@@ -1714,7 +1650,6 @@ async function collectGalleryPhotos(opts) {
       }
     }
   }
-  // Irralliset galleriekuvat
   for (const d of galleryDocs) {
     if (d.blob) {
       photos.push({ blob: d.blob, source: 'gallery', doc: d });
@@ -1738,33 +1673,41 @@ async function openAddGalleryPhotoModal(spaceId, deviceId) {
     <div class="modal-title">Lisää kuvia galleriaan</div>
     <div class="modal-subtitle">Kuvat tallennetaan ilman päiväkirjamerkintää</div>
     <div class="field">
-      <div class="btn-row">
-        <button class="btn btn-secondary" onclick="document.getElementById('galPhotoCamera').click()">${icon('camera')}Kamera</button>
-        <button class="btn btn-secondary" onclick="document.getElementById('galPhotoGallery').click()">${icon('image')}Galleria</button>
+      <div class="photo-grid" id="galPhotoGrid">
+        <button class="photo-add" onclick="document.getElementById('galPhotoCamera').click()">${icon('camera')}<span class="label">Kamera</span></button>
+        <button class="photo-add" onclick="document.getElementById('galPhotoGallery').click()">${icon('image')}<span class="label">Galleria</span></button>
       </div>
       <input type="file" id="galPhotoCamera" accept="image/*" capture="environment" style="display:none" onchange="addGalleryModalPhotos(event)">
       <input type="file" id="galPhotoGallery" accept="image/*" style="display:none" multiple onchange="addGalleryModalPhotos(event)">
-      <div class="photo-grid" id="galPhotoGrid"></div>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
       <button class="btn btn-primary" onclick="saveGalleryPhotos('${spaceId || ''}', '${deviceId || ''}')">Tallenna</button>
     </div>`);
+  refreshIcons();
 }
 
 async function addGalleryModalPhotos(e) {
   for (const f of Array.from(e.target.files)) state.formPhotos.push(await compressImage(f));
   e.target.value = '';
-  document.getElementById('galPhotoGrid').innerHTML = state.formPhotos.map((p, i) =>
-    `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeGalPhoto(${i})">${icon('x')}</button></div>`
-  ).join('');
+  document.getElementById('galPhotoGrid').innerHTML =
+    `<button class="photo-add" onclick="document.getElementById('galPhotoCamera').click()">${icon('camera')}<span class="label">Kamera</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('galPhotoGallery').click()">${icon('image')}<span class="label">Galleria</span></button>` +
+    state.formPhotos.map((p, i) =>
+      `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeGalPhoto(${i})">${icon('x')}</button></div>`
+    ).join('');
+  refreshIcons();
 }
 
 function removeGalPhoto(i) {
   state.formPhotos.splice(i, 1);
-  document.getElementById('galPhotoGrid').innerHTML = state.formPhotos.map((p, idx) =>
-    `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeGalPhoto(${idx})">${icon('x')}</button></div>`
-  ).join('');
+  document.getElementById('galPhotoGrid').innerHTML =
+    `<button class="photo-add" onclick="document.getElementById('galPhotoCamera').click()">${icon('camera')}<span class="label">Kamera</span></button>` +
+    `<button class="photo-add" onclick="document.getElementById('galPhotoGallery').click()">${icon('image')}<span class="label">Galleria</span></button>` +
+    state.formPhotos.map((p, idx) =>
+      `<div class="photo-thumb"><img src="${URL.createObjectURL(p)}"><button class="remove" onclick="removeGalPhoto(${idx})">${icon('x')}</button></div>`
+    ).join('');
+  refreshIcons();
 }
 
 async function saveGalleryPhotos(spaceId, deviceId) {
@@ -3697,13 +3640,11 @@ async function init() {
 }
 
 // Splash-näytön käsittely + päivityksen tarkistus
-let splashReady = false;
-
 async function bootApp() {
   const splash = document.getElementById('splash');
   const status = document.getElementById('splashStatus');
-  const continueBtn = document.getElementById('splashContinue');
   const app = document.getElementById('app');
+  const startTime = Date.now();
 
   // Aloita sovelluksen alustus
   try {
@@ -3717,28 +3658,38 @@ async function bootApp() {
         const reg = await navigator.serviceWorker.getRegistration();
         if (reg) {
           await reg.update();
+          // Odota hetki että updatefound ehtii laueta
+          await new Promise(r => setTimeout(r, 800));
+          if (reg.waiting) {
+            // Uusi versio odottaa asentamista
+            status.textContent = 'Uusi versio saatavilla — päivitä sovellus';
+            status.style.color = 'rgba(255, 255, 255, 0.95)';
+          } else {
+            status.textContent = `Uusin versio käytössä (${APP_VERSION})`;
+          }
+        } else {
+          status.textContent = `Versio ${APP_VERSION}`;
         }
-      } catch (e) { /* hiljaa, päivityksen tarkistus ei ole pakollinen */ }
+      } catch (e) {
+        status.textContent = `Versio ${APP_VERSION}`;
+      }
+    } else {
+      status.textContent = `Versio ${APP_VERSION}`;
     }
-
-    status.textContent = 'Valmis';
-    splashReady = true;
-
-    // Näytä Jatka-nappi pienellä viiveellä
-    await new Promise(r => setTimeout(r, 400));
-    continueBtn.classList.add('visible');
-
   } catch (err) {
     status.textContent = 'Virhe käynnistyksessä';
     alert('Virhe alustuksessa: ' + err.message);
     return;
   }
-}
 
-function dismissSplash() {
-  if (!splashReady) return;
-  const splash = document.getElementById('splash');
-  const app = document.getElementById('app');
+  // Pidä splash näkyvissä vähintään 2000ms jotta käyttäjä ehtii nähdä sen
+  const elapsed = Date.now() - startTime;
+  const minSplashTime = 2000;
+  if (elapsed < minSplashTime) {
+    await new Promise(r => setTimeout(r, minSplashTime - elapsed));
+  }
+
+  // Sulava siirtymä sovellukseen
   app.style.opacity = '1';
   splash.classList.add('fade-out');
   setTimeout(() => { splash.style.display = 'none'; }, 500);
