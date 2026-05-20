@@ -70,14 +70,17 @@ body {
 #splash {
   position: fixed; inset: 0;
   background: #2563eb;
-  display: flex; align-items: center; justify-content: center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: flex-start;
   z-index: 9999;
   transition: opacity 0.4s ease;
+  overflow: hidden;
 }
 #splash.fade-out { opacity: 0; pointer-events: none; }
 .splash-content {
   display: flex; flex-direction: column; align-items: center;
-  gap: 18px;
+  gap: 14px;
+  margin-top: max(15vh, 60px);
   animation: splash-in 0.5s ease both;
 }
 @keyframes splash-in {
@@ -99,8 +102,47 @@ body {
   font-size: 13px;
   color: rgba(255, 255, 255, 0.75);
   font-weight: 500;
-  margin-top: 6px;
+  margin-top: 2px;
   min-height: 18px;
+}
+.splash-continue {
+  margin-top: 28px;
+  background: white;
+  color: #2563eb;
+  border: none;
+  padding: 14px 48px;
+  border-radius: 14px;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.4s ease, transform 0.4s ease, background 0.15s ease;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  display: none;
+}
+.splash-continue.visible {
+  display: block;
+  opacity: 1;
+  transform: translateY(0);
+}
+.splash-continue:active {
+  background: #e8eeff;
+  transform: scale(0.97);
+}
+.splash-bottom-art {
+  position: fixed;
+  bottom: -10px; left: 50%;
+  transform: translateX(-50%);
+  width: min(380px, 88vw);
+  opacity: 0;
+  animation: splash-art-in 0.8s 0.2s ease both;
+  pointer-events: none;
+}
+@keyframes splash-art-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(30px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 /* --- Top bar (kevyt, ei iso hero) --- */
@@ -795,21 +837,37 @@ body {
     <svg class="splash-icon" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
       <rect width="200" height="200" rx="44" fill="white"/>
       <g stroke="#2563eb" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" fill="none">
-        <!-- Talo -->
         <path d="M55 110 L100 70 L130 92 L130 75 L142 75 L142 100 L150 110"/>
         <path d="M62 105 L62 145"/>
         <path d="M150 110 L150 145"/>
-        <!-- Pohja / kumpare -->
         <path d="M40 150 Q100 138 165 150"/>
-        <!-- Savu piipusta -->
         <path d="M138 70 Q142 62 138 55 Q134 48 140 42" stroke-width="5"/>
-        <!-- Ovi -->
         <path d="M88 145 L88 125 L112 125 L112 145" stroke-width="5"/>
       </g>
     </svg>
     <div class="splash-title">Taloni</div>
     <div class="splash-status" id="splashStatus">Käynnistetään…</div>
+    <button class="splash-continue" id="splashContinue" onclick="dismissSplash()">Jatka</button>
   </div>
+  <!-- Talo-sydän-kuvitus alaosassa -->
+  <svg class="splash-bottom-art" viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" fill="none">
+    <g stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round" opacity="0.25">
+      <!-- Katto (kaareva kuten alkuperäisessä) -->
+      <path d="M55 210 Q120 140 220 105 Q290 140 385 210"/>
+      <!-- Vasen seinä -->
+      <path d="M88 200 L88 310"/>
+      <!-- Oikea seinä -->
+      <path d="M350 210 L350 310"/>
+      <!-- Savupiippu -->
+      <path d="M295 148 L295 100 L330 100 L330 178"/>
+      <!-- Savu -->
+      <path d="M312 95 Q322 72 310 55 Q298 38 312 20" stroke-width="10"/>
+      <!-- Sydän -->
+      <path d="M220 225 Q220 192 195 192 Q170 192 170 217 Q170 242 220 275 Q270 242 270 217 Q270 192 245 192 Q220 192 220 225 Z" stroke-width="10"/>
+      <!-- Kumpare -->
+      <path d="M5 340 Q110 305 220 310 Q330 315 435 340" stroke-width="11"/>
+    </g>
+  </svg>
 </div>
 
 <div id="app" style="opacity: 0;">
@@ -827,10 +885,15 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.7.1';
+const APP_VERSION = '0.7.2';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.7.2', date: '2026-05-20', changes: [
+    'Splash-näyttö uusiksi: app-ikoni ja Taloni-teksti ylhäällä, talo-sydän-kuvitus alaosassa',
+    'Jatka-nappi splash-näytössä — sovellus etenee vasta kun käyttäjä klikkaa',
+    'Kuvitus valkoinen 25% läpinäkyvyydellä, animoituu sisään pehmeästi'
+  ]},
   { version: '0.7.1', date: '2026-05-19', changes: [
     'Splash-näytön minimiaika pidennetty 2 sekuntiin',
     'Versiohistoria-näkymä asetuksissa (Lisää → Versiohistoria)'
@@ -3510,11 +3573,13 @@ async function init() {
 }
 
 // Splash-näytön käsittely + päivityksen tarkistus
+let splashReady = false;
+
 async function bootApp() {
   const splash = document.getElementById('splash');
   const status = document.getElementById('splashStatus');
+  const continueBtn = document.getElementById('splashContinue');
   const app = document.getElementById('app');
-  const startTime = Date.now();
 
   // Aloita sovelluksen alustus
   try {
@@ -3533,20 +3598,23 @@ async function bootApp() {
     }
 
     status.textContent = 'Valmis';
+    splashReady = true;
+
+    // Näytä Jatka-nappi pienellä viiveellä
+    await new Promise(r => setTimeout(r, 400));
+    continueBtn.classList.add('visible');
+
   } catch (err) {
     status.textContent = 'Virhe käynnistyksessä';
     alert('Virhe alustuksessa: ' + err.message);
     return;
   }
+}
 
-  // Pidä splash näkyvissä vähintään 2000ms jotta käyttäjä ehtii nähdä sen
-  const elapsed = Date.now() - startTime;
-  const minSplashTime = 2000;
-  if (elapsed < minSplashTime) {
-    await new Promise(r => setTimeout(r, minSplashTime - elapsed));
-  }
-
-  // Sulava siirtymä sovellukseen
+function dismissSplash() {
+  if (!splashReady) return;
+  const splash = document.getElementById('splash');
+  const app = document.getElementById('app');
   app.style.opacity = '1';
   splash.classList.add('fade-out');
   setTimeout(() => { splash.style.display = 'none'; }, 500);
