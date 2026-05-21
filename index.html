@@ -76,6 +76,12 @@ body {
   transition: opacity 0.4s ease;
 }
 #splash.fade-out { opacity: 0; pointer-events: none; }
+.splash-bottom-art {
+  width: min(320px, 80vw);
+  opacity: 0.9;
+  margin-top: 32px;
+  pointer-events: none;
+}
 .splash-content {
   display: flex; flex-direction: column; align-items: center;
   gap: 18px;
@@ -927,6 +933,18 @@ body {
     </svg>
     <div class="splash-title">Taloni</div>
     <div class="splash-status" id="splashStatus">Käynnistetään…</div>
+    <!-- Jatka-nappi lisätään bootApp:ssa tähän -->
+    <svg class="splash-bottom-art" viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" fill="none">
+      <g stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M55 210 Q120 140 220 105 Q290 140 385 210"/>
+        <path d="M88 200 L88 310"/>
+        <path d="M350 210 L350 310"/>
+        <path d="M295 148 L295 100 L330 100 L330 178"/>
+        <path d="M312 95 Q322 72 310 55 Q298 38 312 20" stroke-width="10"/>
+        <path d="M220 225 Q220 192 195 192 Q170 192 170 217 Q170 242 220 275 Q270 242 270 217 Q270 192 245 192 Q220 192 220 225 Z" stroke-width="10"/>
+        <path d="M5 340 Q110 305 220 310 Q330 315 435 340" stroke-width="11"/>
+      </g>
+    </svg>
   </div>
 </div>
 
@@ -945,7 +963,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.8.18';
+const APP_VERSION = '0.8.20';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -4295,7 +4313,9 @@ async function bootApp() {
       document.querySelector('meta[name="theme-color"]').content = '#ffffff';
       setTimeout(() => { splash.style.display = 'none'; }, 500);
     };
-    document.querySelector('.splash-content').appendChild(btn);
+    // Lisätään nappi ennen SVG-kuvitusta
+    const art = document.querySelector('.splash-bottom-art');
+    document.querySelector('.splash-content').insertBefore(btn, art);
   }
 
   try {
