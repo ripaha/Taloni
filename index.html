@@ -945,7 +945,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.8.17';
+const APP_VERSION = '0.8.18';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -4282,17 +4282,25 @@ async function bootApp() {
   const status = document.getElementById('splashStatus');
   const app = document.getElementById('app');
 
-  // Ohitusnappi hätätilanteessa
-  const skipBtn = document.createElement('button');
-  skipBtn.textContent = 'Ohita →';
-  skipBtn.style.cssText = 'margin-top:24px; padding:12px 32px; border-radius:12px; border:2px solid white; background:transparent; color:white; font-size:16px; font-weight:600; cursor:pointer;';
-  skipBtn.onclick = () => { app.style.opacity = '1'; splash.style.display = 'none'; document.documentElement.style.background = ''; render(); };
-  document.querySelector('.splash-content').appendChild(skipBtn);
+  function showContinueBtn() {
+    const btn = document.createElement('button');
+    btn.textContent = 'Jatka';
+    btn.style.cssText = 'margin-top:28px; padding:14px 48px; border-radius:14px; border:none; background:white; color:#2563eb; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.15);';
+    btn.onclick = async () => {
+      btn.disabled = true;
+      await render();
+      app.style.opacity = '1';
+      splash.classList.add('fade-out');
+      document.documentElement.style.background = '';
+      document.querySelector('meta[name="theme-color"]').content = '#ffffff';
+      setTimeout(() => { splash.style.display = 'none'; }, 500);
+    };
+    document.querySelector('.splash-content').appendChild(btn);
+  }
 
   try {
-    status.textContent = 'Avataan tietokanta…';
+    status.textContent = 'Käynnistetään…';
     db = await openDB();
-    status.textContent = 'Ladataan luokitukset…';
     const existingTaxonomies = await dbAll('taxonomies');
     if (existingTaxonomies.length === 0) {
       for (const [type, items] of Object.entries(DEFAULT_TAXONOMIES)) {
@@ -4301,10 +4309,8 @@ async function bootApp() {
         }
       }
     }
-    status.textContent = 'Ladataan asetukset…';
     await refreshTaxonomyCache();
     await loadAppSettings();
-    status.textContent = 'Tarkistetaan kiinteistö…';
     const properties = await dbAll('properties');
     if (properties.length === 0) {
       const propId = uid();
@@ -4315,25 +4321,34 @@ async function bootApp() {
       const ls = await dbGet('settings', 'lastProperty');
       state.currentPropertyId = ls?.value || properties[0].id;
     }
-    status.textContent = 'Valmis';
+
+    // SW-päivitystarkistus
+    if ('serviceWorker' in navigator) {
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) {
+          await Promise.race([reg.update(), new Promise(r => setTimeout(r, 2000))]);
+          if (reg.waiting) {
+            status.textContent = 'Uusi versio saatavilla — päivitä sovellus';
+            status.style.color = 'rgba(255,255,255,0.95)';
+          } else {
+            status.textContent = `Uusin versio käytössä (${APP_VERSION})`;
+          }
+        } else {
+          status.textContent = `Versio ${APP_VERSION}`;
+        }
+      } catch(e) {
+        status.textContent = `Versio ${APP_VERSION}`;
+      }
+    } else {
+      status.textContent = `Versio ${APP_VERSION}`;
+    }
   } catch (err) {
-    status.textContent = 'Virhe: ' + err.message;
+    status.textContent = `Virhe: ${err.message}`;
     console.error('bootApp virhe:', err);
-    await new Promise(r => setTimeout(r, 5000));
   }
 
-  await new Promise(r => setTimeout(r, 800));
-  try {
-    await render();
-  } catch(err) {
-    console.error('render virhe:', err);
-    document.getElementById('content').innerHTML = `<div style="padding:32px 20px;"><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Virhe</div><div style="font-size:13px;font-family:monospace;color:red;">${err.message}</div></div>`;
-  }
-  app.style.opacity = '1';
-  splash.classList.add('fade-out');
-  document.documentElement.style.background = '';
-  document.querySelector('meta[name="theme-color"]').content = '#ffffff';
-  setTimeout(() => { splash.style.display = 'none'; }, 500);
+  showContinueBtn();
 }
 
 bootApp();
