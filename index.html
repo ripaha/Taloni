@@ -945,38 +945,21 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.8.3';
+const APP_VERSION = '0.8.17';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
-  { version: '0.8.3', date: '2026-05-21', changes: [
-    'Kaikki vahvistusdialokit CSS-pohjaisiksi — ei enää selaimen pop-uppeja',
-    'Yhteystiedot: rooli samalla fonttikoolla kuin nimi',
-    'Muistutukset: lisäysnapit eivät enää tule modalin päälle (z-index korjattu)',
-    'Yhteystiedon ja muistutuksen poisto + kuittaus korjattu toimimaan'
-  ]},
-  { version: '0.8.2', date: '2026-05-21', changes: [
-    'Yhteystiedot: rooli ei enää pakollinen, riittää rooli, nimi tai yritys',
-    'Yhteystiedot: rooli ylimpänä sinisenä tekstinä, nimi pääotsikkona',
-    'Muistutukset: lisäysnapit bottom nav -tyylillä sivun alaosassa',
-    'Muistutukset: live-preview korjattu tulevaisuuden aloituspäiville',
-    'Etusivu: toistuvat muistutukset keltaisella, yksittäiset sinisellä',
-    'Etusivu: lisätiedot näkyvät muistutusbannerissa'
-  ]},
-  { version: '0.8.1', date: '2026-05-21', changes: [
-    'Yhteystiedot: rooli otsikkona kun ei nimeä/yritystä, badge piilotetaan turhana toistona',
-    'Muistutukset: yksittäinen muistutus päivämäärällä + kuitauspainike',
-    'Muistutukset: toistuva ja yksittäinen eroteltu omiin osioihin',
-    'Muistutukset: globaali asetus "pidä näkyvissä X päivää yli määräpäivän"',
-    'Muistutukset: lomakkeessa live-preview seuraavasta päivämäärästä',
-    'Etusivu: yksittäinen muistutus kuitattavissa suoraan etusivulta'
+  { version: '0.8.17', date: '2026-05-21', changes: [
+    'Kriittinen bugikorjaus: ikuinen silmukka muistutuksen toistuvuuslaskennassa kaatoi sovelluksen',
+    'Muistutuksen aloituspäivästä lasketaan oikein seuraava tapahtuma (aloitus + jakso)',
+    'UTC vs. paikallinen aika korjattu — ei enää yhden päivän heittoa Suomen aikavyöhykkeellä'
   ]},
   { version: '0.8.0', date: '2026-05-20', changes: [
     'Yhteystiedot: rooli, nimi, yritys, puhelin, lisätiedot — kiinteistökohtaiset',
-    'Otsikkologiikka: jos nimi puuttuu, yritys nousee pääotsikoksi',
-    'Muistutukset: toistuvat tapahtumat (joka X päivä/viikko/kuukausi/vuosi)',
-    'Muistutukset: näytä etusivulla X päivää ennen valittavissa',
-    'Etusivu: muistutuspalkki näkyy kun tapahtuma lähestyy',
+    'Muistutukset: toistuvat ja yksittäiset tapahtumat',
+    'Muistutukset: näytä etusivulla X päivää ennen, pidä näkyvissä X päivää yli',
+    'Etusivu: muistutuspalkki ajankohtaisten yläpuolella',
+    'Kaikki vahvistusdialokit CSS-pohjaisiksi — ei enää selaimen pop-uppeja',
     'Versiohistoria: tiekartta tulevista ominaisuuksista'
   ]},
   { version: '0.7.2', date: '2026-05-20', changes: [
@@ -1173,63 +1156,72 @@ function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
-      const db = e.target.result;
-      if (!db.objectStoreNames.contains('properties')) db.createObjectStore('properties', { keyPath: 'id' });
-      if (!db.objectStoreNames.contains('spaces')) {
-        const s = db.createObjectStore('spaces', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId'); s.createIndex('parentId', 'parentId');
-      }
-      if (!db.objectStoreNames.contains('devices')) {
-        const s = db.createObjectStore('devices', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
-      }
-      if (!db.objectStoreNames.contains('maintenanceItems')) {
-        const s = db.createObjectStore('maintenanceItems', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
-        s.createIndex('deviceId', 'deviceId'); s.createIndex('nextDate', 'nextDate');
-      }
-      if (!db.objectStoreNames.contains('maintenanceLogs')) {
-        const s = db.createObjectStore('maintenanceLogs', { keyPath: 'id' });
-        s.createIndex('itemId', 'itemId'); s.createIndex('deviceId', 'deviceId');
-      }
-      if (!db.objectStoreNames.contains('journalEntries')) {
-        const s = db.createObjectStore('journalEntries', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
-        s.createIndex('projectId', 'projectId');
-      }
-      if (!db.objectStoreNames.contains('projects')) {
-        const s = db.createObjectStore('projects', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId');
-      }
-      if (!db.objectStoreNames.contains('documents')) {
-        const s = db.createObjectStore('documents', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
-        s.createIndex('deviceId', 'deviceId');
-      }
-      if (!db.objectStoreNames.contains('contacts')) {
-        const s = db.createObjectStore('contacts', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId');
-      }
-      if (!db.objectStoreNames.contains('meters')) {
-        const s = db.createObjectStore('meters', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId');
-      }
-      if (!db.objectStoreNames.contains('meterReadings')) {
-        const s = db.createObjectStore('meterReadings', { keyPath: 'id' });
-        s.createIndex('meterId', 'meterId');
-      }
-      if (!db.objectStoreNames.contains('taxonomies')) {
-        const s = db.createObjectStore('taxonomies', { keyPath: 'id' });
-        s.createIndex('type', 'type');
-      }
-      if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
-      if (!db.objectStoreNames.contains('reminders')) {
-        const s = db.createObjectStore('reminders', { keyPath: 'id' });
-        s.createIndex('propertyId', 'propertyId');
+      try {
+        const db = e.target.result;
+        if (!db.objectStoreNames.contains('properties')) db.createObjectStore('properties', { keyPath: 'id' });
+        if (!db.objectStoreNames.contains('spaces')) {
+          const s = db.createObjectStore('spaces', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId'); s.createIndex('parentId', 'parentId');
+        }
+        if (!db.objectStoreNames.contains('devices')) {
+          const s = db.createObjectStore('devices', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
+        }
+        if (!db.objectStoreNames.contains('maintenanceItems')) {
+          const s = db.createObjectStore('maintenanceItems', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
+          s.createIndex('deviceId', 'deviceId'); s.createIndex('nextDate', 'nextDate');
+        }
+        if (!db.objectStoreNames.contains('maintenanceLogs')) {
+          const s = db.createObjectStore('maintenanceLogs', { keyPath: 'id' });
+          s.createIndex('itemId', 'itemId'); s.createIndex('deviceId', 'deviceId');
+        }
+        if (!db.objectStoreNames.contains('journalEntries')) {
+          const s = db.createObjectStore('journalEntries', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
+          s.createIndex('projectId', 'projectId');
+        }
+        if (!db.objectStoreNames.contains('projects')) {
+          const s = db.createObjectStore('projects', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId');
+        }
+        if (!db.objectStoreNames.contains('documents')) {
+          const s = db.createObjectStore('documents', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
+          s.createIndex('deviceId', 'deviceId');
+        }
+        if (!db.objectStoreNames.contains('contacts')) {
+          const s = db.createObjectStore('contacts', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId');
+        }
+        if (!db.objectStoreNames.contains('meters')) {
+          const s = db.createObjectStore('meters', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId');
+        }
+        if (!db.objectStoreNames.contains('meterReadings')) {
+          const s = db.createObjectStore('meterReadings', { keyPath: 'id' });
+          s.createIndex('meterId', 'meterId');
+        }
+        if (!db.objectStoreNames.contains('taxonomies')) {
+          const s = db.createObjectStore('taxonomies', { keyPath: 'id' });
+          s.createIndex('type', 'type');
+        }
+        if (!db.objectStoreNames.contains('settings')) db.createObjectStore('settings', { keyPath: 'key' });
+        if (!db.objectStoreNames.contains('reminders')) {
+          const s = db.createObjectStore('reminders', { keyPath: 'id' });
+          s.createIndex('propertyId', 'propertyId');
+        }
+      } catch (err) {
+        console.error('[DB] Migraatiovirhe:', err);
+        reject(err);
       }
     };
     req.onsuccess = () => resolve(req.result);
     req.onerror = () => reject(req.error);
+    req.onblocked = () => {
+      console.warn('[DB] Tietokanta on estetty — sulje muut välilehdet');
+      reject(new Error('Tietokanta on estetty. Sulje muut Taloni-välilehdet ja lataa sivu uudelleen.'));
+    };
   });
 }
 
@@ -1251,9 +1243,16 @@ async function dbWhere(store, indexName, value) {
 // Apurit
 // ============================================================
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-const today = () => new Date().toISOString().slice(0, 10);
-const fmtDate = iso => !iso ? '–' : new Date(iso).toLocaleDateString('fi-FI', { day: 'numeric', month: 'short', year: 'numeric' });
-const fmtDateShort = iso => !iso ? '–' : new Date(iso).toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' });
+// Muuntaa Date-objektin paikalliseksi YYYY-MM-DD -merkkijonoksi (ei UTC-ongelmaa)
+const toLocalDateStr = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+const today = () => toLocalDateStr(new Date());
+const fmtDate = iso => !iso ? '–' : new Date(iso + 'T12:00:00').toLocaleDateString('fi-FI', { day: 'numeric', month: 'short', year: 'numeric' });
+const fmtDateShort = iso => !iso ? '–' : new Date(iso + 'T12:00:00').toLocaleDateString('fi-FI', { day: 'numeric', month: 'numeric' });
 const fmtSize = b => b < 1024 ? b + ' B' : b < 1048576 ? (b/1024).toFixed(1) + ' kB' : (b/1048576).toFixed(1) + ' MB';
 function daysUntil(iso) {
   if (!iso) return null;
@@ -1267,7 +1266,7 @@ function calcNextDate(lastDate, interval, unit) {
   if (unit === 'days') d.setDate(d.getDate() + Number(interval));
   if (unit === 'months') d.setMonth(d.getMonth() + Number(interval));
   if (unit === 'years') d.setFullYear(d.getFullYear() + Number(interval));
-  return d.toISOString().slice(0, 10);
+  return toLocalDateStr(d);
 }
 function toast(msg) {
   const t = document.getElementById('toast');
@@ -1275,16 +1274,20 @@ function toast(msg) {
   setTimeout(() => t.classList.remove('show'), 2200);
 }
 
-function confirmDialog(msg, onConfirm, title) {
+function confirmDialog(msg, onConfirm, title, confirmLabel) {
   const overlay = document.createElement('div');
   overlay.className = 'confirm-overlay';
+  const safeTitle = title ? title.replace(/[<>"'&]/g, '') : '';
+  const safeMsg = msg.replace(/[<>"'&]/g, c => ({'<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;','&':'&amp;'}[c]));
+  const btnLabel = confirmLabel || 'Poista';
+  const btnClass = confirmLabel && confirmLabel !== 'Poista' ? 'btn btn-primary' : 'btn btn-danger';
   overlay.innerHTML = `
     <div class="confirm-box">
-      ${title ? `<div class="confirm-title">${escapeHtml(title)}</div>` : ''}
-      <div class="confirm-msg">${escapeHtml(msg)}</div>
+      ${safeTitle ? `<div class="confirm-title">${safeTitle}</div>` : ''}
+      <div class="confirm-msg">${safeMsg}</div>
       <div class="confirm-btns">
         <button class="btn btn-ghost" id="confirmNo">Peruuta</button>
-        <button class="btn btn-danger" id="confirmYes">Poista</button>
+        <button class="${btnClass}" id="confirmYes">${btnLabel}</button>
       </div>
     </div>`;
   document.body.appendChild(overlay);
@@ -1470,27 +1473,37 @@ function switchTab(tab) {
 async function renderContent() {
   document.getElementById('fab').style.display = 'none';
   if (!state.currentPropertyId) return renderPropertyPicker();
-  if (state.stack.length > 0) {
-    const top = state.stack[state.stack.length - 1];
-    if (top.view === 'space') return renderSpaceView(top.id);
-    if (top.view === 'maintenanceList') return renderMaintenanceList();
-    if (top.view === 'documentsList') return renderDocumentsList();
-    if (top.view === 'devicesList') return renderDevicesList();
-    if (top.view === 'contactsList') return renderContactsList();
-    if (top.view === 'remindersList') return renderRemindersList();
-    if (top.view === 'maintenanceItem') return renderMaintenanceItemDetail(top.id);
-    if (top.view === 'device') return renderDeviceDetail(top.id);
-    if (top.view === 'document') return renderDocumentDetail(top.id);
-    if (top.view === 'taxonomies') return renderTaxonomyList();
-    if (top.view === 'taxonomyEdit') return renderTaxonomyEdit(top.type);
-    if (top.view === 'changelog') return renderChangelog();
-    if (top.view === 'journalList') return renderJournalList(top);
-    if (top.view === 'gallery') return renderGallery(top);
+  try {
+    if (state.stack.length > 0) {
+      const top = state.stack[state.stack.length - 1];
+      if (top.view === 'space') return renderSpaceView(top.id);
+      if (top.view === 'maintenanceList') return renderMaintenanceList();
+      if (top.view === 'documentsList') return renderDocumentsList();
+      if (top.view === 'devicesList') return renderDevicesList();
+      if (top.view === 'contactsList') return renderContactsList();
+      if (top.view === 'remindersList') return renderRemindersList();
+      if (top.view === 'maintenanceItem') return renderMaintenanceItemDetail(top.id);
+      if (top.view === 'device') return renderDeviceDetail(top.id);
+      if (top.view === 'document') return renderDocumentDetail(top.id);
+      if (top.view === 'taxonomies') return renderTaxonomyList();
+      if (top.view === 'taxonomyEdit') return renderTaxonomyEdit(top.type);
+      if (top.view === 'changelog') return renderChangelog();
+      if (top.view === 'journalList') return renderJournalList(top);
+      if (top.view === 'gallery') return renderGallery(top);
+    }
+    if (state.currentTab === 'home') return renderHome();
+    if (state.currentTab === 'spaces') return renderSpaces();
+    if (state.currentTab === 'journal') return renderJournal();
+    if (state.currentTab === 'more') return renderMore();
+  } catch(err) {
+    console.error('renderContent virhe:', err);
+    document.getElementById('content').innerHTML = `
+      <div style="padding:32px 20px; color:var(--ink);">
+        <div style="font-size:16px; font-weight:600; margin-bottom:8px;">Virhe</div>
+        <div style="font-size:13px; color:var(--ink-soft); font-family:monospace;">${err.message}</div>
+        <button class="btn btn-primary" style="margin-top:16px;" onclick="location.reload()">Lataa uudelleen</button>
+      </div>`;
   }
-  if (state.currentTab === 'home') return renderHome();
-  if (state.currentTab === 'spaces') return renderSpaces();
-  if (state.currentTab === 'journal') return renderJournal();
-  if (state.currentTab === 'more') return renderMore();
 }
 
 // ============================================================
@@ -1554,7 +1567,7 @@ async function renderHome() {
       let dateStr, diff;
       const isOnce = r.type === 'once';
       if (isOnce) {
-        const date = new Date(r.onceDate);
+        const date = parseLocalDate(r.onceDate);
         const today = new Date(); today.setHours(0,0,0,0);
         diff = Math.round((date - today) / 86400000);
         dateStr = fmtDate(r.onceDate);
@@ -1562,7 +1575,7 @@ async function renderHome() {
         const next = calcNextReminderDate(r);
         const today = new Date(); today.setHours(0,0,0,0);
         diff = Math.round((next - today) / 86400000);
-        dateStr = fmtDate(next.toISOString().slice(0,10));
+        dateStr = fmtDate(toLocalDateStr(next));
       }
       const whenText = diff < 0 ? `${Math.abs(diff)} päivää sitten` : diff === 0 ? 'Tänään' : diff === 1 ? 'Huomenna' : `${diff} päivän päästä`;
       const bgColor = isOnce ? '#eff6ff' : '#fffbeb';
@@ -2168,28 +2181,37 @@ async function renderDevicesList() {
 }
 
 // ── Toistuvuuslogiikka ──────────────────────────────────────────────
+function parseLocalDate(dateStr) {
+  // Parsitaan YYYY-MM-DD paikallisena aikana eikä UTC:nä
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const dt = new Date(y, m - 1, d);
+  dt.setHours(0,0,0,0);
+  return dt;
+}
+
+function addReminderInterval(date, type, interval) {
+  const d = new Date(date);
+  if (type === 'days')         d.setDate(d.getDate() + interval);
+  else if (type === 'weeks')   d.setDate(d.getDate() + 7);
+  else if (type === 'nweeks')  d.setDate(d.getDate() + 7 * interval);
+  else if (type === 'months')  d.setMonth(d.getMonth() + 1);
+  else if (type === 'nmonths') d.setMonth(d.getMonth() + interval);
+  else if (type === 'years')   d.setFullYear(d.getFullYear() + 1);
+  else d.setDate(d.getDate() + 7); // fallback: viikoittain
+  return d;
+}
+
 function calcNextReminderDate(reminder) {
   const today = new Date(); today.setHours(0,0,0,0);
-  const start = new Date(reminder.startDate || reminder.created || Date.now());
+  const start = reminder.startDate
+    ? parseLocalDate(reminder.startDate)
+    : new Date(reminder.created || Date.now());
   start.setHours(0,0,0,0);
-  // Jos aloituspäivä on tulevaisuudessa, se on jo seuraava päivä
-  if (start > today) return start;
   const type = reminder.repeatType;
-  const interval = parseInt(reminder.repeatInterval) || 1;
-  let next = new Date(start);
-  if (type === 'days') {
-    while (next <= today) next.setDate(next.getDate() + interval);
-  } else if (type === 'weeks') {
-    while (next <= today) next.setDate(next.getDate() + 7);
-  } else if (type === 'nweeks') {
-    while (next <= today) next.setDate(next.getDate() + 7 * interval);
-  } else if (type === 'months') {
-    while (next <= today) next.setMonth(next.getMonth() + 1);
-  } else if (type === 'nmonths') {
-    while (next <= today) next.setMonth(next.getMonth() + interval);
-  } else if (type === 'years') {
-    while (next <= today) next.setFullYear(next.getFullYear() + 1);
-  }
+  const interval = Math.max(1, parseInt(reminder.repeatInterval) || 1);
+  let next = addReminderInterval(start, type, interval);
+  let guard = 0;
+  while (next <= today && guard < 1000) { next = addReminderInterval(next, type, interval); guard++; }
   return next;
 }
 
@@ -2207,21 +2229,26 @@ function repeatLabel(r) {
 }
 
 function isDueSoon(reminder) {
+  if (!reminder) return false;
   if (reminder.type === 'once') {
     if (reminder.acknowledged) return false;
+    if (!reminder.onceDate) return false;
     const today = new Date(); today.setHours(0,0,0,0);
-    const date = new Date(reminder.onceDate);
+    const date = parseLocalDate(reminder.onceDate);
     const overdueDays = parseInt(state.reminderOverdueDays ?? 2);
-    const limit = new Date(today); limit.setDate(limit.getDate() - overdueDays);
-    const alertLimit = new Date(today); alertLimit.setDate(alertLimit.getDate() + (parseInt(reminder.alertDays) || 1));
-    return date >= limit && date <= alertLimit;
+    const lowerLimit = new Date(today); lowerLimit.setDate(lowerLimit.getDate() - overdueDays);
+    const upperLimit = new Date(today); upperLimit.setDate(upperLimit.getDate() + (parseInt(reminder.alertDays) || 1));
+    return date >= lowerLimit && date <= upperLimit;
   }
-  const next = calcNextReminderDate(reminder);
-  const today = new Date(); today.setHours(0,0,0,0);
-  const overdueDays = parseInt(state.reminderOverdueDays ?? 2);
-  const lowerLimit = new Date(today); lowerLimit.setDate(lowerLimit.getDate() - overdueDays);
-  const upperLimit = new Date(today); upperLimit.setDate(upperLimit.getDate() + (parseInt(reminder.alertDays) || 1));
-  return next >= lowerLimit && next <= upperLimit;
+  if (!reminder.startDate && !reminder.created) return false;
+  try {
+    const next = calcNextReminderDate(reminder);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const overdueDays = parseInt(state.reminderOverdueDays ?? 2);
+    const lowerLimit = new Date(today); lowerLimit.setDate(lowerLimit.getDate() - overdueDays);
+    const upperLimit = new Date(today); upperLimit.setDate(upperLimit.getDate() + (parseInt(reminder.alertDays) || 1));
+    return next >= lowerLimit && next <= upperLimit;
+  } catch(e) { return false; }
 }
 
 // ── Yhteystiedot ─────────────────────────────────────────────────────
@@ -2329,7 +2356,7 @@ async function saveContact(id) {
 
 async function deleteContact(id) {
   confirmDialog('Poistetaanko yhteystieto pysyvästi?', async () => {
-    await dbDelete('contacts', id);
+    await dbDel('contacts', id);
     toast('Yhteystieto poistettu');
     render();
   });
@@ -2373,16 +2400,18 @@ async function renderRemindersList() {
     <div style="height: 80px;"></div>
   `;
 
-  // Bottom nav lisäysnapeille
+  // Lisäyspalkki sivun alaosassa
   const bar = document.createElement('div');
-  bar.style.cssText = 'position:fixed; bottom:calc(64px + env(safe-area-inset-bottom)); left:0; right:0; display:flex; gap:1px; background:var(--border); z-index:90; max-width:520px; margin:0 auto;';
+  bar.style.cssText = 'position:fixed; bottom:calc(64px + env(safe-area-inset-bottom)); left:0; right:0; z-index:90; max-width:520px; margin:0 auto; padding:8px 16px; background:var(--bg); border-top:1px solid var(--border);';
   bar.innerHTML = `
-    <button onclick="openAddReminderModal('recurring')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; background:var(--bg-card); border:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--accent);">
-      ${icon('repeat')} Toistuva
-    </button>
-    <button onclick="openAddReminderModal('once')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:14px; background:var(--bg-card); border:none; cursor:pointer; font-size:14px; font-weight:600; color:var(--ink);">
-      ${icon('calendar')} Yksittäinen
-    </button>`;
+    <div style="display:flex; gap:10px;">
+      <button onclick="openAddReminderModal('recurring')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 16px; background:var(--accent); border:none; border-radius:12px; cursor:pointer; font-size:14px; font-weight:600; color:white;">
+        ${icon('repeat')} Uusi toistuva
+      </button>
+      <button onclick="openAddReminderModal('once')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:14px; font-weight:600; color:var(--ink);">
+        ${icon('calendar')} Yksittäinen
+      </button>
+    </div>`;
   bar.id = 'reminderBottomBar';
   document.body.appendChild(bar);
   refreshIcons();
@@ -2393,7 +2422,7 @@ function renderReminderCard(r) {
   const due = isDueSoon(r);
 
   if (isOnce) {
-    const date = new Date(r.onceDate);
+    const date = parseLocalDate(r.onceDate);
     const today = new Date(); today.setHours(0,0,0,0);
     const diff = Math.round((date - today) / 86400000);
     const whenText = diff < 0 ? `${Math.abs(diff)} päivää sitten` : diff === 0 ? 'Tänään' : diff === 1 ? 'Huomenna' : `${diff} päivän päästä`;
@@ -2432,7 +2461,7 @@ function renderReminderCard(r) {
     </div>
     <hr class="reminder-card-divider">
     <div class="reminder-fields">
-      <div><div class="reminder-field-label">Seuraava</div><div class="reminder-field-value">${fmtDate(next.toISOString().slice(0,10))} <span style="color:var(--ink-soft); font-size:12px;">(${whenText2})</span></div></div>
+      <div><div class="reminder-field-label">Seuraava</div><div class="reminder-field-value">${fmtDate(toLocalDateStr(next))} <span style="color:var(--ink-soft); font-size:12px;">(${whenText2})</span></div></div>
       <div><div class="reminder-field-label">Muistuta</div><div class="reminder-field-value">${r.alertDays} ${parseInt(r.alertDays) === 1 ? 'päivä' : 'päivää'} ennen</div></div>
     </div>
     ${r.notes ? `<div class="reminder-notes"><div class="reminder-notes-label">Lisätiedot</div><div class="reminder-notes-value">${escapeHtml(r.notes)}</div></div>` : ''}
@@ -2457,18 +2486,20 @@ function reminderNextPreview() {
     const startEl = document.getElementById('rStart');
     const previewEl = document.getElementById('rPreview');
     if (!typeEl || !startEl || !previewEl) return;
+    const startVal = startEl.value;
+    if (!startVal) { previewEl.textContent = ''; return; }
     const fake = {
       repeatType: typeEl.value,
       repeatInterval: parseInt(document.getElementById('rInterval')?.value) || 1,
-      startDate: startEl.value
+      startDate: startVal
     };
-    if (!fake.startDate) { previewEl.textContent = ''; return; }
     const next = calcNextReminderDate(fake);
     const today = new Date(); today.setHours(0,0,0,0);
     const diff = Math.round((next - today) / 86400000);
-    const whenText = diff === 0 ? 'tänään' : diff === 1 ? 'huomenna' : `${diff} päivän päästä`;
-    previewEl.textContent = `Seuraava: ${fmtDate(next.toISOString().slice(0,10))} (${whenText})`;
-  } catch(e) {}
+    const whenText = diff < 0 ? `${Math.abs(diff)} päivää sitten` : diff === 0 ? 'tänään' : diff === 1 ? 'huomenna' : `${diff} päivän päästä`;
+    previewEl.textContent = `Seuraava: ${fmtDate(toLocalDateStr(next))} (${whenText})`;
+    previewEl.style.color = diff < 0 ? 'var(--warn)' : 'var(--accent)';
+  } catch(e) { console.error('preview:', e); }
 }
 
 function reminderFormHtml(r, type) {
@@ -2488,7 +2519,7 @@ function reminderFormHtml(r, type) {
   const cur = r?.repeatType || 'nweeks';
   return `
     <div class="field"><label class="field-label">Kuvaus *</label><input class="field-input" id="rTitle" value="${escapeHtml(r?.title||'')}" placeholder="esim. Jäteauto" oninput="reminderNextPreview()"></div>
-    <div class="field"><label class="field-label">Aloituspäivä *</label><input class="field-input" id="rStart" type="date" value="${r?.startDate || new Date().toISOString().slice(0,10)}" onchange="reminderNextPreview()"></div>
+    <div class="field"><label class="field-label">Aloituspäivä *</label><input class="field-input" id="rStart" type="date" value="${r?.startDate || toLocalDateStr(new Date())}" onchange="reminderNextPreview()"></div>
     <div class="field"><label class="field-label">Toistuvuus</label>
       <select class="field-input" id="rType" onchange="updateReminderInterval()">
         ${types.map(([v,l]) => `<option value="${v}" ${cur===v?'selected':''}>${l}</option>`).join('')}
@@ -2580,7 +2611,7 @@ async function saveReminder(id, type) {
 
 async function acknowledgeReminder(id) {
   confirmDialog('Kuitataan ja poistetaan muistutus?', async () => {
-    await dbDelete('reminders', id);
+    await dbDel('reminders', id);
     toast('Muistutus kuitattu');
     render();
   }, 'Kuittaa muistutus');
@@ -2588,7 +2619,7 @@ async function acknowledgeReminder(id) {
 
 async function deleteReminder(id) {
   confirmDialog('Poistetaanko muistutus pysyvästi?', async () => {
-    await dbDelete('reminders', id);
+    await dbDel('reminders', id);
     toast('Muistutus poistettu');
     render();
   });
@@ -4019,7 +4050,6 @@ async function importData(e) {
   const file = e.target.files[0];
   if (!file) return;
   confirmDialog('Korvaa kaikki nykyiset tiedot tuodulla varmuuskopiolla? Tätä ei voi perua.', async () => {
-    toast('Tuodaan…');
     const data = JSON.parse(await file.text());
     for (const store of STORES) await dbClear(store);
     for (const store of STORES) {
@@ -4044,7 +4074,7 @@ async function importData(e) {
     const ls = await dbGet('settings', 'lastProperty');
     if (ls) state.currentPropertyId = ls.value;
     render();
-  }, 'Tuo varmuuskopio');
+  }, 'Tuo varmuuskopio', 'Tuo');
   e.target.value = '';
 }
 
@@ -4251,46 +4281,54 @@ async function bootApp() {
   const splash = document.getElementById('splash');
   const status = document.getElementById('splashStatus');
   const app = document.getElementById('app');
-  const startTime = Date.now();
+
+  // Ohitusnappi hätätilanteessa
+  const skipBtn = document.createElement('button');
+  skipBtn.textContent = 'Ohita →';
+  skipBtn.style.cssText = 'margin-top:24px; padding:12px 32px; border-radius:12px; border:2px solid white; background:transparent; color:white; font-size:16px; font-weight:600; cursor:pointer;';
+  skipBtn.onclick = () => { app.style.opacity = '1'; splash.style.display = 'none'; document.documentElement.style.background = ''; render(); };
+  document.querySelector('.splash-content').appendChild(skipBtn);
 
   try {
-    status.textContent = 'Käynnistetään…';
-    await init();
-
-    if ('serviceWorker' in navigator) {
-      status.textContent = 'Tarkistetaan päivityksiä…';
-      try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) {
-          await reg.update();
-          await new Promise(r => setTimeout(r, 800));
-          if (reg.waiting) {
-            status.textContent = 'Uusi versio saatavilla — päivitä sovellus';
-            status.style.color = 'rgba(255, 255, 255, 0.95)';
-          } else {
-            status.textContent = `Uusin versio käytössä (${APP_VERSION})`;
-          }
-        } else {
-          status.textContent = `Versio ${APP_VERSION}`;
+    status.textContent = 'Avataan tietokanta…';
+    db = await openDB();
+    status.textContent = 'Ladataan luokitukset…';
+    const existingTaxonomies = await dbAll('taxonomies');
+    if (existingTaxonomies.length === 0) {
+      for (const [type, items] of Object.entries(DEFAULT_TAXONOMIES)) {
+        for (let i = 0; i < items.length; i++) {
+          await dbPut('taxonomies', { id: uid(), type, name: items[i].name, icon: items[i].icon, order: i, created: Date.now() });
         }
-      } catch (e) {
-        status.textContent = `Versio ${APP_VERSION}`;
       }
-    } else {
-      status.textContent = `Versio ${APP_VERSION}`;
     }
+    status.textContent = 'Ladataan asetukset…';
+    await refreshTaxonomyCache();
+    await loadAppSettings();
+    status.textContent = 'Tarkistetaan kiinteistö…';
+    const properties = await dbAll('properties');
+    if (properties.length === 0) {
+      const propId = uid();
+      await dbPut('properties', { id: propId, name: 'Kotini', type: 'Omakotitalo', address: '', notes: '', created: Date.now() });
+      state.currentPropertyId = propId;
+      await dbPut('settings', { key: 'lastProperty', value: propId });
+    } else {
+      const ls = await dbGet('settings', 'lastProperty');
+      state.currentPropertyId = ls?.value || properties[0].id;
+    }
+    status.textContent = 'Valmis';
   } catch (err) {
-    status.textContent = 'Virhe käynnistyksessä';
-    alert('Virhe alustuksessa: ' + err.message);
-    return;
+    status.textContent = 'Virhe: ' + err.message;
+    console.error('bootApp virhe:', err);
+    await new Promise(r => setTimeout(r, 5000));
   }
 
-  const elapsed = Date.now() - startTime;
-  const minSplashTime = 2000;
-  if (elapsed < minSplashTime) {
-    await new Promise(r => setTimeout(r, minSplashTime - elapsed));
+  await new Promise(r => setTimeout(r, 800));
+  try {
+    await render();
+  } catch(err) {
+    console.error('render virhe:', err);
+    document.getElementById('content').innerHTML = `<div style="padding:32px 20px;"><div style="font-size:16px;font-weight:600;margin-bottom:8px;">Virhe</div><div style="font-size:13px;font-family:monospace;color:red;">${err.message}</div></div>`;
   }
-
   app.style.opacity = '1';
   splash.classList.add('fade-out');
   document.documentElement.style.background = '';
