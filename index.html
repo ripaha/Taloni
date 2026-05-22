@@ -1008,7 +1008,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.0';
+const APP_VERSION = '0.9.1';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -2177,15 +2177,15 @@ function renderAllPhotosContent(c, allPhotos) {
   const sort = window._photoSort || 'newest';
   const group = window._photoGroup || 'all';
 
-  // Järjestely
-  const sorted = [...allPhotos].sort((a, b) => {
-    return sort === 'newest' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date);
-  });
+  const sorted = [...allPhotos].sort((a, b) =>
+    sort === 'newest' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
 
-  // Ryhmittely
+  // Tallennetaan koko taulukko lightboxia varten — yksi globaali indeksi
+  _lightboxPhotos = sorted;
+
   let html = '';
   if (group === 'all') {
-    html = renderPhotoGrid(sorted);
+    html = renderPhotoGridIndexed(sorted, 0);
   } else {
     const groups = {};
     const groupOrder = [];
@@ -2196,12 +2196,14 @@ function renderAllPhotosContent(c, allPhotos) {
       const name = group === 'space'
         ? (p.spaceId ? p.groupName : 'Ei tilaa')
         : (p.deviceId ? p.groupName : 'Ei laitetta');
-      if (!groups[key]) { groups[key] = { name, photos: [] }; groupOrder.push(key); }
+      if (!groups[key]) { groups[key] = { name, photos: [], startIdx: 0 }; groupOrder.push(key); }
       groups[key].photos.push(p);
     }
+    let offset = 0;
+    for (const key of groupOrder) { groups[key].startIdx = offset; offset += groups[key].photos.length; }
     for (const key of groupOrder) {
       html += `<div class="photos-group-title">${escapeHtml(groups[key].name)} (${groups[key].photos.length})</div>`;
-      html += renderPhotoGrid(groups[key].photos);
+      html += renderPhotoGridIndexed(groups[key].photos, groups[key].startIdx);
     }
   }
 
@@ -2223,18 +2225,20 @@ function renderAllPhotosContent(c, allPhotos) {
   `;
 }
 
-// Tallennetaan viimeisin fotoarray lightboxia varten
-let _lightboxPhotos = [];
-
-function renderPhotoGrid(photos) {
-  _lightboxPhotos = photos;
+function renderPhotoGridIndexed(photos, startIdx) {
   return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
-    ${photos.map((p, i) => `
-      <div class="photo-thumb" onclick="openLightbox(${i})">
-        <img src="${URL.createObjectURL(p.blob)}">
-      </div>`).join('')}
+    ${photos.map((p, i) => {
+      const globalIdx = startIdx + i;
+      return `<div style="display:flex; flex-direction:column; gap:3px;">
+        <div class="photo-thumb" onclick="openLightbox(${globalIdx})">
+          <img src="${URL.createObjectURL(p.blob)}">
+        </div>
+        <div style="font-size:11px; color:var(--ink-soft); text-align:center;">${escapeHtml(p.subtitle || '')}</div>
+      </div>`;
+    }).join('')}
   </div>`;
 }
+
 
 function openLightbox(idx) {
   const photos = _lightboxPhotos;
