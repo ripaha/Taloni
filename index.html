@@ -1015,7 +1015,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.91';
+const APP_VERSION = '0.9.92';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -1590,11 +1590,19 @@ async function renderNav() {
   refreshIcons();
 }
 
+function scrollNavToActive() {
+  setTimeout(() => {
+    const active = document.querySelector('.nav-btn.active');
+    if (active) active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
+  }, 80);
+}
+
 function switchToView(tabId, viewId) {
   state.currentTab = tabId;
   state.stack = [{ view: viewId }];
   render();
   window.scrollTo(0, 0);
+  scrollNavToActive();
 }
 
 function switchTab(tab) {
@@ -1602,6 +1610,7 @@ function switchTab(tab) {
   clearStack();
   render();
   window.scrollTo(0, 0);
+  scrollNavToActive();
 }
 
 async function renderContent() {
