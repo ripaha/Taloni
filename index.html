@@ -1015,7 +1015,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.95';
+const APP_VERSION = '0.9.96';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -1659,6 +1659,7 @@ async function renderContent() {
       if (top.view === 'journalList') return renderJournalList(top);
       if (top.view === 'gallery') return renderGallery(top);
     if (top.view === 'allPhotos') return renderAllPhotos();
+    if (top.view === 'generalSettings') return renderGeneralSettings();
     }
     if (state.currentTab === 'home') return renderHome();
     if (state.currentTab === 'spaces') return renderSpaces();
@@ -2474,17 +2475,11 @@ async function renderMore() {
 
     <div class="section-title">Sovellus</div>
 
-    <div class="section-title" style="font-size:11px; margin-top:4px;">Yleisasetukset</div>
-    <div class="setting-row">
-      <div><div class="label">Näytä etusivulla tulossa olevat huollot</div><div class="value">${state.upcomingDays} päivän sisään</div></div>
-      <input type="number" min="1" max="365" value="${state.upcomingDays}" style="width:56px; text-align:center; border:1px solid var(--border); border-radius:8px; padding:4px 6px; font-size:14px; background:var(--bg-card); color:var(--ink);" onchange="saveUpcomingDaysDirect(parseInt(this.value))">
+    <div class="setting-row" onclick="pushView({view:'generalSettings'})">
+      <div><div class="label">Yleisasetukset</div><div class="value">Huollot, muistutukset</div></div>
+      <div class="arrow">${icon('chevron-right')}</div>
     </div>
-    <div class="setting-row">
-      <div><div class="label">Pidä muistutukset etusivulla yli määräpäivän</div><div class="value">${state.reminderOverdueDays} päivää</div></div>
-      <input type="number" min="0" max="14" value="${state.reminderOverdueDays}" style="width:56px; text-align:center; border:1px solid var(--border); border-radius:8px; padding:4px 6px; font-size:14px; background:var(--bg-card); color:var(--ink);" onchange="state.reminderOverdueDays=parseInt(this.value)||0; render();">
-    </div>
-
-    <div class="setting-row" onclick="pushView({view:'taxonomies'})" style="margin-top:8px;">
+    <div class="setting-row" onclick="pushView({view:'taxonomies'})">
       <div><div class="label">Luokitukset</div><div class="value">Tilatyypit, huoltokategoriat</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
     </div>
@@ -2504,6 +2499,38 @@ async function renderMore() {
       <div><div class="label">Versiohistoria</div><div class="value">Versio ${APP_VERSION} — kaikki muutokset</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
     </div>
+  `;
+}
+
+async function renderGeneralSettings() {
+  const c = document.getElementById('content');
+  document.getElementById('fab').style.display = 'none';
+  c.innerHTML = `
+    <h1 class="page-title">Yleisasetukset</h1>
+
+    <div class="section-title">Huoltokohteet</div>
+    <div class="setting-row">
+      <div>
+        <div class="label">Näytä etusivulla tulossa olevat huollot</div>
+        <div class="value">${state.upcomingDays} päivän sisään</div>
+      </div>
+      <input type="number" min="1" max="365" value="${state.upcomingDays}"
+        style="width:60px; text-align:center; border:1px solid var(--border); border-radius:8px; padding:6px; font-size:15px; background:var(--bg-card); color:var(--ink);"
+        onchange="saveUpcomingDaysDirect(parseInt(this.value)); this.previousElementSibling.querySelector('.value').textContent = this.value + ' päivän sisään';">
+    </div>
+    <p class="field-help" style="padding: 0 0 8px;">Oletus 30. Esim. 60 = näyttää myös 60 päivän päässä olevat huollot.</p>
+
+    <div class="section-title">Muistutukset</div>
+    <div class="setting-row">
+      <div>
+        <div class="label">Pidä muistutukset etusivulla yli määräpäivän</div>
+        <div class="value">${state.reminderOverdueDays} päivää</div>
+      </div>
+      <input type="number" min="0" max="14" value="${state.reminderOverdueDays}"
+        style="width:60px; text-align:center; border:1px solid var(--border); border-radius:8px; padding:6px; font-size:15px; background:var(--bg-card); color:var(--ink);"
+        onchange="state.reminderOverdueDays=parseInt(this.value)||0; this.previousElementSibling.querySelector('.value').textContent = this.value + ' päivää';">
+    </div>
+    <p class="field-help" style="padding: 0 0 8px;">Oletus 2. Esim. 2 = muistutus näkyy etusivulla vielä 2 päivää tapahtuman jälkeen.</p>
   `;
 }
 
@@ -2758,7 +2785,7 @@ async function deleteContact(id) {
 // ── Muistutukset ──────────────────────────────────────────────────────
 async function renderRemindersList() {
   const c = document.getElementById('content');
-  document.getElementById('fab').style.display = 'none';
+  document.getElementById('fab').style.display = 'flex';
   const reminders = await dbWhere('reminders', 'propertyId', state.currentPropertyId);
   const recurring = reminders.filter(r => r.type !== 'once');
   const once = reminders.filter(r => r.type === 'once');
@@ -2783,11 +2810,6 @@ async function renderRemindersList() {
       <div class="empty-title">Ei muistutuksia</div>
       <div class="empty-text">Lisää toistuvia tai yksittäisiä muistutuksia</div>
     </div>` : ''}
-
-    <div class="btn-row" style="margin-top: 16px; padding-bottom: 8px;">
-      <button class="btn btn-primary" style="flex:1;" onclick="openAddReminderModal('recurring')">${icon('repeat')}Uusi toistuva</button>
-      <button class="btn btn-secondary" style="flex:1;" onclick="openAddReminderModal('once')">${icon('calendar')}Yksittäinen</button>
-    </div>
   `;
 }
 
@@ -3492,6 +3514,7 @@ function onFabClick() {
     if (top.view === 'maintenanceList') return openAddMaintenanceModal(null);
     if (top.view === 'documentsList') return openAddDocModal(null);
     if (top.view === 'devicesList') return openAddDeviceModal(null);
+    if (top.view === 'remindersList') return openAddReminderPickerModal();
     if (top.view === 'journalList') {
       return openAddJournalModal({ spaceId: top.spaceId, deviceId: top.deviceId });
     }
@@ -3499,6 +3522,17 @@ function onFabClick() {
   if (state.currentTab === 'home') return openQuickAddModal();
   if (state.currentTab === 'spaces') return openAddSpaceModal(null);
   if (state.currentTab === 'journal') return openAddJournalModal({});
+}
+
+function openAddReminderPickerModal() {
+  openModal(`
+    <div class="modal-title">Lisää muistutus</div>
+    <div class="btn-row" style="margin-top: 8px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="closeModal(); openAddReminderModal('recurring')">${icon('repeat')}Toistuva</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="closeModal(); openAddReminderModal('once')">${icon('calendar')}Yksittäinen</button>
+    </div>
+    <button class="btn btn-ghost" style="width:100%; margin-top:8px;" onclick="closeModal()">Peruuta</button>
+  `);
 }
 
 // ============================================================
