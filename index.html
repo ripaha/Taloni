@@ -334,21 +334,28 @@ body {
 }
 .nav-inner {
   max-width: 520px; margin: 0 auto; width: 100%;
-  display: grid; grid-template-columns: repeat(4, 1fr);
+  display: flex; flex-direction: row;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none; /* Firefox */
+  -webkit-overflow-scrolling: touch;
 }
+.nav-inner::-webkit-scrollbar { display: none; }
 .nav-btn {
   background: none; border: none;
-  padding: 12px 4px 10px;
+  padding: 10px 14px 8px;
   color: var(--ink-soft);
-  font-size: 11px; font-weight: 500;
+  font-size: 10px; font-weight: 500;
   font-family: inherit;
   display: flex; flex-direction: column;
-  align-items: center; gap: 4px;
+  align-items: center; gap: 3px;
   cursor: pointer; position: relative;
+  flex-shrink: 0; min-width: 64px;
+  white-space: nowrap;
 }
 .nav-btn svg { width: 22px; height: 22px; }
 .nav-btn.active { color: var(--accent); }
 .nav-btn.active svg { stroke-width: 2.4; }
+.nav-btn.disabled { opacity: 0.4; pointer-events: none; }
 
 /* --- Modal --- */
 .modal {
@@ -1008,10 +1015,17 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.5';
+const APP_VERSION = '0.9.6';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.9.6', date: '2026-05-23', changes: [
+    'Alavalikko scrollattavaksi — kaikki näkymät yhdessä palkissa',
+    'Linkit: Etusivu, Huoltokohteet, Päiväkirja, Muistutukset, Valokuvat, Tilat, Laitteet, Kulutus, Asiakirjat, Yhteystiedot, Asetukset',
+    'Huollot → Huoltokohteet',
+    'Lisää-valikko muutettu Asetukset-sivuksi',
+    'Kulutus disabled-tilassa, aktiivinen sivu korostuu'
+  ]},
   { version: '0.9.4', date: '2026-05-23', changes: [
     'Lightbox: ei enää vilku sivunvaihdossa — päivitetään sisältö poistamatta elementtiä',
     'Lightbox: väärä kuva -bugi korjattu ryhmitellessä — globaali indeksi tallennetaan ennen ryhmittelyä',
@@ -1541,16 +1555,55 @@ async function renderBackNav() {
 async function renderNav() {
   const nav = document.getElementById('nav');
   if (!state.currentPropertyId) { nav.innerHTML = ''; return; }
+
+  const isActive = (tabId, viewId) => {
+    if (viewId) return state.stack.length > 0 && state.stack[state.stack.length-1].view === viewId;
+    return state.currentTab === tabId && state.stack.length === 0;
+  };
+
   const tabs = [
-    { id: 'home', label: 'Etusivu', icon: 'house' },
-    { id: 'spaces', label: 'Tilat', icon: 'layout-grid' },
-    { id: 'journal', label: 'Päiväkirja', icon: 'book-open' },
-    { id: 'more', label: 'Lisää', icon: 'menu' }
+    { id: 'home',      label: 'Etusivu',       icon: 'house' },
+    { id: 'more',      label: 'Huoltokohteet', icon: 'wrench',      view: 'maintenanceList' },
+    { id: 'journal',   label: 'Päiväkirja',    icon: 'book-open' },
+    { id: 'more',      label: 'Muistutukset',  icon: 'bell',        view: 'remindersList' },
+    { id: 'more',      label: 'Valokuvat',     icon: 'images',      view: 'allPhotos' },
+    { id: 'spaces',    label: 'Tilat',         icon: 'layout-grid' },
+    { id: 'more',      label: 'Laitteet',      icon: 'plug',        view: 'devicesList' },
+    { id: 'more',      label: 'Kulutus',       icon: 'activity',    disabled: true },
+    { id: 'more',      label: 'Asiakirjat',    icon: 'file-text',   view: 'documentsList' },
+    { id: 'more',      label: 'Yhteystiedot',  icon: 'phone',       view: 'contactsList' },
+    { id: 'more',      label: 'Asetukset',     icon: 'settings' },
   ];
-  nav.innerHTML = `<div class="nav-inner">${tabs.map(t => `
-    <button class="nav-btn ${state.currentTab === t.id && state.stack.length === 0 ? 'active' : ''}" onclick="switchTab('${t.id}')">
-      ${icon(t.icon)}<span>${t.label}</span>
-    </button>`).join('')}</div>`;
+
+  nav.innerHTML = `<div class="nav-inner">${tabs.map(t => {
+    const active = t.view ? isActive(t.id, t.view) : isActive(t.id, null);
+    const cls = ['nav-btn', active ? 'active' : '', t.disabled ? 'disabled' : ''].filter(Boolean).join(' ');
+    const onclick = t.disabled ? '' : t.view
+      ? `onclick="switchToView('${t.id}', '${t.view}')"`
+      : `onclick="switchTab('${t.id}')"`;
+    return `<button class="${cls}" ${onclick}>${icon(t.icon)}<span>${t.label}</span></button>`;
+  }).join('')}</div>`;
+  refreshIcons();
+
+  // Scrollaa aktiivinen nappi näkyviin
+  requestAnimationFrame(() => {
+    const inner = nav.querySelector('.nav-inner');
+    const active = nav.querySelector('.nav-btn.active');
+    if (inner && active) {
+      const btnLeft = active.offsetLeft;
+      const btnRight = btnLeft + active.offsetWidth;
+      const visible = inner.clientWidth;
+      if (btnRight > inner.scrollLeft + visible) inner.scrollLeft = btnRight - visible + 20;
+      else if (btnLeft < inner.scrollLeft) inner.scrollLeft = btnLeft - 20;
+    }
+  });
+}
+
+function switchToView(tabId, viewId) {
+  state.currentTab = tabId;
+  state.stack = [{ view: viewId }];
+  render();
+  window.scrollTo(0, 0);
 }
 
 function switchTab(tab) {
@@ -2379,47 +2432,10 @@ function closeLightbox() {
 // ============================================================
 async function renderMore() {
   const c = document.getElementById('content');
-  const items = await dbWhere('maintenanceItems', 'propertyId', state.currentPropertyId);
-  const docs = await dbWhere('documents', 'propertyId', state.currentPropertyId);
-  const devices = await dbWhere('devices', 'propertyId', state.currentPropertyId);
-  const contacts = await dbWhere('contacts', 'propertyId', state.currentPropertyId);
-  const reminders = await dbWhere('reminders', 'propertyId', state.currentPropertyId);
+  document.getElementById('fab').style.display = 'none';
 
   c.innerHTML = `
-    <h1 class="page-title">Lisää</h1>
-    <p class="page-subtitle">Kootut näkymät ja asetukset</p>
-
-    <div class="section-title">Näkymät</div>
-    <div class="menu-grid">
-      <div class="menu-tile" onclick="pushView({view:'maintenanceList'})">
-        <div class="icon">${icon('wrench')}</div>
-        <div><div class="label">Huollot</div><div class="sub">${items.length} kohdetta</div></div>
-      </div>
-      <div class="menu-tile" onclick="pushView({view:'devicesList'})">
-        <div class="icon">${icon('box')}</div>
-        <div><div class="label">Laitteet</div><div class="sub">${devices.length} laitetta</div></div>
-      </div>
-      <div class="menu-tile" onclick="pushView({view:'documentsList'})">
-        <div class="icon">${icon('file-text')}</div>
-        <div><div class="label">Asiakirjat</div><div class="sub">${docs.length} tiedostoa</div></div>
-      </div>
-      <div class="menu-tile" onclick="pushView({view:'contactsList'})">
-        <div class="icon">${icon('phone')}</div>
-        <div><div class="label">Yhteystiedot</div><div class="sub">${contacts.length} ${contacts.length === 1 ? 'yhteystieto' : 'yhteystietoa'}</div></div>
-      </div>
-      <div class="menu-tile" onclick="pushView({view:'remindersList'})">
-        <div class="icon">${icon('bell')}</div>
-        <div><div class="label">Muistutukset</div><div class="sub">${reminders.length} ${reminders.length === 1 ? 'muistutus' : 'muistutusta'}</div></div>
-      </div>
-      <div class="menu-tile" onclick="pushView({view:'allPhotos'})">
-        <div class="icon">${icon('images')}</div>
-        <div><div class="label">Valokuvat</div><div class="sub">Kaikki kuvat</div></div>
-      </div>
-      <div class="menu-tile" onclick="toast('Kulutus tulossa myöhemmin')">
-        <div class="icon">${icon('activity')}</div>
-        <div><div class="label">Kulutus</div><div class="sub">Tulossa</div></div>
-      </div>
-    </div>
+    <h1 class="page-title">Asetukset</h1>
 
     <div class="section-title">Kiinteistö</div>
     <div class="setting-row" onclick="openEditPropertyModal()">
@@ -2469,9 +2485,9 @@ async function renderMaintenanceList() {
   const later = items.filter(i => { const d = daysUntil(i.nextDate); return d === null || d > state.upcomingDays; });
 
   c.innerHTML = `
-    <h1 class="page-title">Huollot</h1>
+    <h1 class="page-title">Huoltokohteet</h1>
     <p class="page-subtitle">${items.length} ${items.length === 1 ? 'kohde' : 'kohdetta'}</p>
-    ${items.length === 0 ? `<div class="empty"><div class="empty-icon-circle">${icon('wrench')}</div><div class="empty-title">Ei huoltoja</div><div class="empty-text">Aloita lisäämällä ensimmäinen kohde</div></div>` : `
+    ${items.length === 0 ? `<div class="empty"><div class="empty-icon-circle">${icon('wrench')}</div><div class="empty-title">Ei huoltokohteita</div><div class="empty-text">Aloita lisäämällä ensimmäinen kohde</div></div>` : `
       ${overdue.length > 0 ? `<div class="group-title urgent">Myöhässä</div>${overdue.map(i => renderMaintenanceCard(i)).join('')}` : ''}
       ${soon.length > 0 ? `<div class="group-title soon">Tulossa</div>${soon.map(i => renderMaintenanceCard(i)).join('')}` : ''}
       ${later.length > 0 ? `<div class="group-title">Myöhemmin</div>${later.map(i => renderMaintenanceCard(i)).join('')}` : ''}
@@ -3464,7 +3480,6 @@ function onFabClick() {
   if (state.currentTab === 'home') return openQuickAddModal();
   if (state.currentTab === 'spaces') return openAddSpaceModal(null);
   if (state.currentTab === 'journal') return openAddJournalModal({});
-  if (state.currentTab === 'more') return openQuickAddModal();
 }
 
 // ============================================================
