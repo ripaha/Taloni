@@ -2,7 +2,7 @@
 // Tämä tiedosto pyörii selaimessa taustalla ja hallinnoi välimuistia.
 // Aina kun sovellus päivitetään, vaihda CACHE_VERSION numero korkeammaksi.
 
-const CACHE_VERSION = 'v0.9.93';
+const CACHE_VERSION = 'v0.9.94';
 const CACHE_NAME = `taloni-${CACHE_VERSION}`;
 
 // Tiedostot joita välimuistiin tallennetaan asennuksen yhteydessä.
@@ -20,11 +20,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(ESSENTIAL_FILES);
-    }).then(() => {
-      // skipWaiting tekee uudesta versiosta heti aktiivisen vanhan tilalle
-      // Sovellus saa erikseen tiedon ja voi pyytää lataamaan sivun uudelleen
-      return self.skipWaiting();
     })
+    // Ei skipWaiting tässä — uusi versio odottaa käyttäjän hyväksyntää
   );
 });
 
