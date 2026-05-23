@@ -1015,7 +1015,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.9';
+const APP_VERSION = '0.9.10';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -4688,8 +4688,27 @@ async function bootApp() {
         if (reg) {
           await Promise.race([reg.update(), new Promise(r => setTimeout(r, 2000))]);
           if (reg.waiting) {
-            status.textContent = 'Uusi versio saatavilla — päivitä sovellus';
+            // Uusi versio odottaa — näytetään ilmoitus ja latauspainike
+            status.textContent = `Uusi versio saatavilla`;
             status.style.color = 'rgba(255,255,255,0.95)';
+            status.style.fontWeight = '600';
+
+            const updateBtn = document.createElement('button');
+            updateBtn.style.cssText = 'margin-top:16px; padding:12px 32px; border-radius:12px; border:2px solid white; background:transparent; color:white; font-size:15px; font-weight:600; cursor:pointer; display:block; width:100%; max-width:240px;';
+            updateBtn.textContent = 'Lataa ja päivitä';
+            updateBtn.onclick = () => {
+              updateBtn.textContent = 'Päivitetään…';
+              updateBtn.disabled = true;
+              status.textContent = 'Ladataan uutta versiota…';
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            };
+            // Lisätään nappi Jatka-napin eteen
+            const art = document.querySelector('.splash-bottom-art');
+            const content = document.querySelector('.splash-content');
+            content.insertBefore(updateBtn, art);
+
+            // Päivitetään sivu automaattisesti kun uusi SW ottaa kontrollin
+            navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
           } else {
             status.textContent = `Uusin versio käytössä (${APP_VERSION})`;
           }
