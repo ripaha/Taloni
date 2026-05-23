@@ -1015,43 +1015,39 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.6';
+const APP_VERSION = '0.9.9';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.9.7', date: '2026-05-23', changes: [
+    'Alavalikko: aktiivinen nappi korjattu — Kulutus ei enää korosta, Asetukset korostuu oikein',
+    'Alavalikko: scroll käyttää scrollIntoView eikä enää hyppää ohi'
+  ]},
   { version: '0.9.6', date: '2026-05-23', changes: [
-    'Alavalikko scrollattavaksi — kaikki näkymät yhdessä palkissa',
-    'Linkit: Etusivu, Huoltokohteet, Päiväkirja, Muistutukset, Valokuvat, Tilat, Laitteet, Kulutus, Asiakirjat, Yhteystiedot, Asetukset',
-    'Huollot → Huoltokohteet',
-    'Lisää-valikko muutettu Asetukset-sivuksi',
-    'Kulutus disabled-tilassa, aktiivinen sivu korostuu'
+    'Alavalikko muutettu vaakasuunnassa scrollattavaksi — kaikki 11 näkymää yhdessä palkissa',
+    'Järjestys: Etusivu, Huoltokohteet, Päiväkirja, Muistutukset, Valokuvat, Tilat, Laitteet, Kulutus, Asiakirjat, Yhteystiedot, Asetukset',
+    'Huollot nimetty Huoltokohteet',
+    'Lisää-valikko muutettu Asetukset-sivuksi ilman navigaatiolinkkejä',
+    'Kulutus näkyy disabled-tilassa (tulossa)'
+  ]},
+  { version: '0.9.5', date: '2026-05-23', changes: [
+    'Valokuvat: pyyhkäisy korjattu — lukee nykyisen indeksin dynaamisesti'
   ]},
   { version: '0.9.4', date: '2026-05-23', changes: [
-    'Lightbox: ei enää vilku sivunvaihdossa — päivitetään sisältö poistamatta elementtiä',
-    'Lightbox: väärä kuva -bugi korjattu ryhmitellessä — globaali indeksi tallennetaan ennen ryhmittelyä',
-    'Valokuvat: päiväkirjaikkoni inline-SVG:nä — näkyy nyt oikein',
-    'Lightbox: navigointinuolet ‹ › tekstinä Lucide-ikonien sijaan'
+    'Valokuvat: lightbox ei enää vilku kuvien välillä',
+    'Valokuvat: ryhmittelyn väärä kuva -bugi korjattu globaalilla indeksillä',
+    'Valokuvat: päiväkirjaikkoni näkyy nyt oikein (inline SVG)'
   ]},
   { version: '0.9.3', date: '2026-05-23', changes: [
-    'Valokuvat: ryhmitysbugi korjattu — laite-ryhmittely käytti virheellisesti spaceId:ä',
-    'Valokuvat: tila/laite-nimi ja kellonaika näkyvät jokaisen kuvan alla',
-    'Valokuvat: päiväkirjamerkinnän kuvissa pieni kirjaikkoni oikeassa alakulmassa',
-    'Lightbox: edellinen/seuraava -napit alareunassa',
-    'Lightbox: pyyhkäisy vasemmalle/oikealle vaihtaa kuvaa'
-  ]},
-  { version: '0.9.2', date: '2026-05-23', changes: [
-    'Valokuvat: kellonaika näkyy jokaisen kuvan alla (pvm + klo)',
-    'Valokuvat: järjestely perustuu nyt tarkkaan kellonaikaan pelkän päivämäärän sijaan'
-  ]},
-  { version: '0.9.1', date: '2026-05-23', changes: [
-    'Valokuvat: linkki-ongelma korjattu ryhmitellessä — globaali indeksi kaikille kuville',
-    'Valokuvat: päivämäärä näkyy jokaisen kuvan alla'
+    'Valokuvat: laite-ryhmittely korjattu',
+    'Valokuvat: tila/laite + kellonaika kuvan alla, päiväkirjaikkoni kuvaan',
+    'Lightbox: edellinen/seuraava -napit + pyyhkäisy'
   ]},
   { version: '0.9.0', date: '2026-05-23', changes: [
-    'Valokuvat-sivu Lisää-valikossa — kaikki kiinteistön kuvat',
-    'Järjestely: uusin/vanhin ensin',
-    'Ryhmittely: kaikki/tila/laite',
-    'Lightbox: kuva isoksi, tiedot ja linkki ko. tilaan/laitteeseen/merkintään'
+    'Valokuvat-sivu: kaikki kiinteistön kuvat yhdessä paikassa',
+    'Järjestely uusin/vanhin, ryhmittely tila/laite/kaikki',
+    'Lightbox: kuva isoksi, tiedot ja linkki ko. kortille tai merkintään',
+    'Kuvien kellonaika tallennetaan ja näytetään'
   ]},
   { version: '0.8.17', date: '2026-05-21', changes: [
     'Kriittinen bugikorjaus: ikuinen silmukka muistutuksen toistuvuuslaskennassa kaatoi sovelluksen',
@@ -1556,9 +1552,17 @@ async function renderNav() {
   const nav = document.getElementById('nav');
   if (!state.currentPropertyId) { nav.innerHTML = ''; return; }
 
-  const isActive = (tabId, viewId) => {
-    if (viewId) return state.stack.length > 0 && state.stack[state.stack.length-1].view === viewId;
-    return state.currentTab === tabId && state.stack.length === 0;
+  const curView = state.stack.length > 0 ? state.stack[state.stack.length-1].view : null;
+
+  const isActive = (t) => {
+    if (t.disabled) return false;
+    if (curView) {
+      // Stackissa ollaan — aktiivinen vain jos view täsmää
+      return t.view === curView;
+    }
+    // Ei stackia — aktiivinen jos tab täsmää JA napilla ei ole erillistä view-vaatimusta
+    if (t.view) return false; // view-napit eivät koskaan aktiivisia ilman stackia
+    return state.currentTab === t.id;
   };
 
   const tabs = [
@@ -1576,7 +1580,7 @@ async function renderNav() {
   ];
 
   nav.innerHTML = `<div class="nav-inner">${tabs.map(t => {
-    const active = t.view ? isActive(t.id, t.view) : isActive(t.id, null);
+    const active = isActive(t);
     const cls = ['nav-btn', active ? 'active' : '', t.disabled ? 'disabled' : ''].filter(Boolean).join(' ');
     const onclick = t.disabled ? '' : t.view
       ? `onclick="switchToView('${t.id}', '${t.view}')"`
@@ -1585,18 +1589,14 @@ async function renderNav() {
   }).join('')}</div>`;
   refreshIcons();
 
-  // Scrollaa aktiivinen nappi näkyviin
-  requestAnimationFrame(() => {
+  // Scrollaa aktiivinen nappi näkyviin — pieni viive jotta layout on valmis
+  setTimeout(() => {
     const inner = nav.querySelector('.nav-inner');
     const active = nav.querySelector('.nav-btn.active');
     if (inner && active) {
-      const btnLeft = active.offsetLeft;
-      const btnRight = btnLeft + active.offsetWidth;
-      const visible = inner.clientWidth;
-      if (btnRight > inner.scrollLeft + visible) inner.scrollLeft = btnRight - visible + 20;
-      else if (btnLeft < inner.scrollLeft) inner.scrollLeft = btnLeft - 20;
+      active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
     }
-  });
+  }, 50);
 }
 
 function switchToView(tabId, viewId) {
@@ -3185,9 +3185,10 @@ async function renderChangelog() {
   const c = document.getElementById('content');
 
   const roadmap = [
-    { version: '0.9', title: 'Kulutusseuranta', desc: 'Sähkö- ja vesilukemien seuranta, kulutusgraafit' },
-    { version: '1.0', title: 'Projektit', desc: 'Remontit ja hankkeet kustannusseurantoineen' },
-    { version: '1.1+', title: 'Google Drive -synkronointi', desc: 'Tietojen varmuuskopiointi ja synkronointi pilveen' }
+    { version: '0.9', title: 'Valokuvat ja alanavi', desc: 'Valokuvat-sivu, scrollattava alavalikko — työn alla' },
+    { version: '1.0', title: 'Kulutusseuranta', desc: 'Sähkö- ja vesilukemien seuranta, kulutusgraafit' },
+    { version: '1.1', title: 'Projektit', desc: 'Remontit ja hankkeet kustannusseurantoineen' },
+    { version: '1.2+', title: 'Google Drive -synkronointi', desc: 'Tietojen varmuuskopiointi ja synkronointi pilveen' }
   ];
 
   c.innerHTML = `
