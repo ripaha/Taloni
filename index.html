@@ -1015,7 +1015,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.94';
+const APP_VERSION = '0.9.95';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -1553,8 +1553,24 @@ async function renderTopbar() {
 
 async function renderBackNav() {
   const el = document.getElementById('backNav');
-  if (state.stack.length === 0) { el.innerHTML = ''; return; }
-  el.innerHTML = `<div class="back-nav" onclick="popView()">${icon('arrow-left')}Takaisin</div>`;
+  // Takaisin-linkki näytetään myös tietyille päätason sivuille
+  const topLevelViews = ['changelog', 'taxonomies', 'taxonomyEdit'];
+  const needsBack = state.stack.length > 0 ||
+    state.currentTab === 'journal' ||
+    state.currentTab === 'spaces' ||
+    state.currentTab === 'more' ||
+    (state.stack.length > 0 && topLevelViews.includes(state.stack[state.stack.length-1]?.view));
+  if (!needsBack) { el.innerHTML = ''; return; }
+  el.innerHTML = `<div class="back-nav" onclick="goBack()">${icon('arrow-left')}Takaisin</div>`;
+}
+
+function goBack() {
+  if (state.stack.length > 0) {
+    popView();
+  } else {
+    // Päätason sivuilla mennään etusivulle
+    switchTab('home');
+  }
 }
 
 async function renderNav() {
@@ -2457,12 +2473,23 @@ async function renderMore() {
     </div>
 
     <div class="section-title">Sovellus</div>
-    <div class="setting-row" onclick="pushView({view:'taxonomies'})">
+
+    <div class="section-title" style="font-size:11px; margin-top:4px;">Yleisasetukset</div>
+    <div class="setting-row">
+      <div><div class="label">Näytä etusivulla tulossa olevat huollot</div><div class="value">${state.upcomingDays} päivän sisään</div></div>
+      <input type="number" min="1" max="365" value="${state.upcomingDays}" style="width:56px; text-align:center; border:1px solid var(--border); border-radius:8px; padding:4px 6px; font-size:14px; background:var(--bg-card); color:var(--ink);" onchange="saveUpcomingDaysDirect(parseInt(this.value))">
+    </div>
+    <div class="setting-row">
+      <div><div class="label">Pidä muistutukset etusivulla yli määräpäivän</div><div class="value">${state.reminderOverdueDays} päivää</div></div>
+      <input type="number" min="0" max="14" value="${state.reminderOverdueDays}" style="width:56px; text-align:center; border:1px solid var(--border); border-radius:8px; padding:4px 6px; font-size:14px; background:var(--bg-card); color:var(--ink);" onchange="state.reminderOverdueDays=parseInt(this.value)||0; render();">
+    </div>
+
+    <div class="setting-row" onclick="pushView({view:'taxonomies'})" style="margin-top:8px;">
       <div><div class="label">Luokitukset</div><div class="value">Tilatyypit, huoltokategoriat</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
     </div>
     <div class="setting-row" onclick="openSettingsModal()">
-      <div><div class="label">Asetukset ja varmuuskopio</div></div>
+      <div><div class="label">Varmuuskopio</div></div>
       <div class="arrow">${icon('chevron-right')}</div>
     </div>
     <div class="setting-row" onclick="checkForUpdates()">
@@ -2737,15 +2764,9 @@ async function renderRemindersList() {
   const once = reminders.filter(r => r.type === 'once');
   recurring.sort((a, b) => calcNextReminderDate(a) - calcNextReminderDate(b));
   once.sort((a, b) => new Date(a.onceDate) - new Date(b.onceDate));
-  const overdueDays = state.reminderOverdueDays ?? 2;
 
   c.innerHTML = `
     <h1 class="page-title">Muistutukset</h1>
-
-    <div class="setting-row" style="margin-bottom: 16px;">
-      <div><div class="label">Pidä etusivulla yli määräpäivän</div><div class="value">näytetään X päivää myöhässä</div></div>
-      <input type="number" min="0" max="14" value="${overdueDays}" style="width:52px; text-align:center; border:1px solid var(--border); border-radius:8px; padding:4px 6px; font-size:14px; background:var(--bg-card); color:var(--ink);" onchange="state.reminderOverdueDays=parseInt(this.value)||0; render();">
-    </div>
 
     ${once.length > 0 ? `
       <div class="section-title"><span>Yksittäiset</span></div>
@@ -2763,24 +2784,11 @@ async function renderRemindersList() {
       <div class="empty-text">Lisää toistuvia tai yksittäisiä muistutuksia</div>
     </div>` : ''}
 
-    <div style="height: 80px;"></div>
+    <div class="btn-row" style="margin-top: 16px; padding-bottom: 8px;">
+      <button class="btn btn-primary" style="flex:1;" onclick="openAddReminderModal('recurring')">${icon('repeat')}Uusi toistuva</button>
+      <button class="btn btn-secondary" style="flex:1;" onclick="openAddReminderModal('once')">${icon('calendar')}Yksittäinen</button>
+    </div>
   `;
-
-  // Lisäyspalkki sivun alaosassa
-  const bar = document.createElement('div');
-  bar.style.cssText = 'position:fixed; bottom:calc(64px + env(safe-area-inset-bottom)); left:0; right:0; z-index:90; max-width:520px; margin:0 auto; padding:8px 16px; background:var(--bg); border-top:1px solid var(--border);';
-  bar.innerHTML = `
-    <div style="display:flex; gap:10px;">
-      <button onclick="openAddReminderModal('recurring')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 16px; background:var(--accent); border:none; border-radius:12px; cursor:pointer; font-size:14px; font-weight:600; color:white;">
-        ${icon('repeat')} Uusi toistuva
-      </button>
-      <button onclick="openAddReminderModal('once')" style="flex:1; display:flex; align-items:center; justify-content:center; gap:8px; padding:12px 16px; background:var(--bg-card); border:1px solid var(--border); border-radius:12px; cursor:pointer; font-size:14px; font-weight:600; color:var(--ink);">
-        ${icon('calendar')} Yksittäinen
-      </button>
-    </div>`;
-  bar.id = 'reminderBottomBar';
-  document.body.appendChild(bar);
-  refreshIcons();
 }
 
 function renderReminderCard(r) {
@@ -3107,6 +3115,7 @@ async function renderDeviceDetail(id) {
         </div>
       </div>
       ${device.info ? `<div style="margin-top: 16px; font-size: 14px; white-space: pre-wrap; line-height: 1.6;">${escapeHtml(device.info)}</div>` : ''}
+      ${device.notes ? `<div style="margin-top: 10px; font-size: 14px; white-space: pre-wrap; line-height: 1.6; color: var(--ink-soft);">${escapeHtml(device.notes)}</div>` : ''}
     </div>
 
     <div class="section-title">
@@ -3964,8 +3973,11 @@ async function openAddDeviceModal(spaceId) {
         ${spaces.map(s => `<option value="${s.id}" ${s.id === spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
       </select>
     </div>
-    <div class="field"><label>Tiedot</label>
-      <textarea id="dInfo" rows="6" placeholder="Vapaa tekstikenttä — kirjoita tähän mitä haluat:&#10;Valmistaja, malli, sarjanumero, ostopäivä, takuu, yms."></textarea>
+    <div class="field"><label>Laitteen tiedot</label>
+      <textarea id="dInfo" rows="5" placeholder="Valmistaja, malli, sarjanumero, ostopäivä, takuu..."></textarea>
+    </div>
+    <div class="field"><label>Lisätiedot</label>
+      <textarea id="dNotes" rows="3" placeholder="Vapaa muistiinpano"></textarea>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
@@ -3982,6 +3994,7 @@ async function saveNewDevice() {
     spaceId: document.getElementById('dSpace').value || null,
     name,
     info: document.getElementById('dInfo').value.trim(),
+    notes: document.getElementById('dNotes').value.trim(),
     created: Date.now()
   };
   await dbPut('devices', device);
@@ -4004,8 +4017,11 @@ async function openEditDeviceModal(id) {
         ${spaces.map(s => `<option value="${s.id}" ${s.id === device.spaceId ? 'selected' : ''}>${escapeHtml(s.name)}</option>`).join('')}
       </select>
     </div>
-    <div class="field"><label>Tiedot</label>
-      <textarea id="dInfo" rows="8">${escapeHtml(device.info || '')}</textarea>
+    <div class="field"><label>Laitteen tiedot</label>
+      <textarea id="dInfo" rows="5">${escapeHtml(device.info || '')}</textarea>
+    </div>
+    <div class="field"><label>Lisätiedot</label>
+      <textarea id="dNotes" rows="3">${escapeHtml(device.notes || '')}</textarea>
     </div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
@@ -4018,6 +4034,7 @@ async function saveEditedDevice(id) {
   device.name = document.getElementById('dName').value.trim();
   device.spaceId = document.getElementById('dSpace').value || null;
   device.info = document.getElementById('dInfo').value.trim();
+  device.notes = document.getElementById('dNotes').value.trim();
   await dbPut('devices', device);
   closeModal();
   toast('Tallennettu');
@@ -4369,6 +4386,12 @@ async function openSettingsModal() {
     <div class="btn-row" style="margin-top: 24px;">
       <button class="btn btn-ghost" onclick="closeModal()">Sulje</button>
     </div>`);
+}
+
+async function saveUpcomingDaysDirect(val) {
+  if (!val || val < 1 || val > 365) return;
+  state.upcomingDays = val;
+  await dbPut('settings', { key: 'upcomingDays', value: val });
 }
 
 async function saveUpcomingDays() {
