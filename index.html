@@ -1015,7 +1015,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.92';
+const APP_VERSION = '0.9.93';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -1516,11 +1516,20 @@ function clearStack() { state.stack = []; }
 async function render() {
   const old = document.getElementById('reminderBottomBar');
   if (old) old.remove();
+
+  // Tallennetaan navin scroll-positio ennen renderöintiä
+  const navInner = document.querySelector('.nav-inner');
+  const savedNavScroll = navInner ? navInner.scrollLeft : 0;
+
   await renderTopbar();
   await renderBackNav();
   await renderNav();
   await renderContent();
   refreshIcons();
+
+  // Palautetaan navin scroll-positio
+  const newNavInner = document.querySelector('.nav-inner');
+  if (newNavInner) newNavInner.scrollLeft = savedNavScroll;
 }
 
 async function renderTopbar() {
