@@ -1008,10 +1008,24 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.1';
+const APP_VERSION = '0.9.2';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.9.2', date: '2026-05-23', changes: [
+    'Valokuvat: kellonaika näkyy jokaisen kuvan alla (pvm + klo)',
+    'Valokuvat: järjestely perustuu nyt tarkkaan kellonaikaan pelkän päivämäärän sijaan'
+  ]},
+  { version: '0.9.1', date: '2026-05-23', changes: [
+    'Valokuvat: linkki-ongelma korjattu ryhmitellessä — globaali indeksi kaikille kuville',
+    'Valokuvat: päivämäärä näkyy jokaisen kuvan alla'
+  ]},
+  { version: '0.9.0', date: '2026-05-23', changes: [
+    'Valokuvat-sivu Lisää-valikossa — kaikki kiinteistön kuvat',
+    'Järjestely: uusin/vanhin ensin',
+    'Ryhmittely: kaikki/tila/laite',
+    'Lightbox: kuva isoksi, tiedot ja linkki ko. tilaan/laitteeseen/merkintään'
+  ]},
   { version: '0.8.17', date: '2026-05-21', changes: [
     'Kriittinen bugikorjaus: ikuinen silmukka muistutuksen toistuvuuslaskennassa kaatoi sovelluksen',
     'Muistutuksen aloituspäivästä lasketaan oikein seuraava tapahtuma (aloitus + jakso)',
@@ -2128,24 +2142,32 @@ async function renderAllPhotos() {
 async function collectAllPhotosWithMeta() {
   const photos = [];
 
-  // Kaikki tilat ja laitteet nimihakua varten
   const allSpaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
   const allDevices = await dbWhere('devices', 'propertyId', state.currentPropertyId);
   const spaceMap = Object.fromEntries(allSpaces.map(s => [s.id, s]));
   const deviceMap = Object.fromEntries(allDevices.map(d => [d.id, d]));
 
-  // Päiväkirjakuvat
+  const fmtDateTime = (ts) => {
+    if (!ts) return '';
+    const d = new Date(ts);
+    return d.toLocaleDateString('fi-FI', { day:'numeric', month:'short', year:'numeric' })
+      + ' ' + d.toLocaleTimeString('fi-FI', { hour:'2-digit', minute:'2-digit' });
+  };
+
+  // Päiväkirjakuvat — käytetään created-timestamppia järjestykseen
   const journals = await dbWhere('journalEntries', 'propertyId', state.currentPropertyId);
   for (const e of journals) {
     if (!e.photos?.length) continue;
     const space = e.spaceId ? spaceMap[e.spaceId] : null;
     const device = e.deviceId ? deviceMap[e.deviceId] : null;
+    const ts = e.created || 0;
     for (const blob of e.photos) {
       photos.push({
         blob, source: 'journal', entry: e,
-        date: e.date,
+        ts,
+        date: toLocalDateStr(new Date(ts || Date.now())),
         title: space?.name || device?.name || 'Päiväkirja',
-        subtitle: e.date ? fmtDate(e.date) : '',
+        subtitle: fmtDateTime(ts),
         spaceId: e.spaceId, deviceId: e.deviceId,
         groupKey: e.spaceId ? 'space:' + e.spaceId : e.deviceId ? 'device:' + e.deviceId : 'other',
         groupName: space?.name || device?.name || 'Muut'
@@ -2159,11 +2181,13 @@ async function collectAllPhotosWithMeta() {
   for (const d of galleryDocs) {
     const space = d.spaceId ? spaceMap[d.spaceId] : null;
     const device = d.deviceId ? deviceMap[d.deviceId] : null;
+    const ts = d.created || 0;
     photos.push({
       blob: d.blob, source: 'gallery', doc: d,
-      date: toLocalDateStr(new Date(d.created || Date.now())),
+      ts,
+      date: toLocalDateStr(new Date(ts || Date.now())),
       title: space?.name || device?.name || 'Valokuva',
-      subtitle: fmtDate(toLocalDateStr(new Date(d.created || Date.now()))),
+      subtitle: fmtDateTime(ts),
       spaceId: d.spaceId, deviceId: d.deviceId,
       groupKey: d.spaceId ? 'space:' + d.spaceId : d.deviceId ? 'device:' + d.deviceId : 'other',
       groupName: space?.name || device?.name || 'Muut'
@@ -2178,7 +2202,7 @@ function renderAllPhotosContent(c, allPhotos) {
   const group = window._photoGroup || 'all';
 
   const sorted = [...allPhotos].sort((a, b) =>
-    sort === 'newest' ? b.date.localeCompare(a.date) : a.date.localeCompare(b.date));
+    sort === 'newest' ? (b.ts || 0) - (a.ts || 0) : (a.ts || 0) - (b.ts || 0));
 
   // Tallennetaan koko taulukko lightboxia varten — yksi globaali indeksi
   _lightboxPhotos = sorted;
