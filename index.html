@@ -1008,10 +1008,16 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.3';
+const APP_VERSION = '0.9.4';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.9.4', date: '2026-05-23', changes: [
+    'Lightbox: ei enää vilku sivunvaihdossa — päivitetään sisältö poistamatta elementtiä',
+    'Lightbox: väärä kuva -bugi korjattu ryhmitellessä — globaali indeksi tallennetaan ennen ryhmittelyä',
+    'Valokuvat: päiväkirjaikkoni inline-SVG:nä — näkyy nyt oikein',
+    'Lightbox: navigointinuolet ‹ › tekstinä Lucide-ikonien sijaan'
+  ]},
   { version: '0.9.3', date: '2026-05-23', changes: [
     'Valokuvat: ryhmitysbugi korjattu — laite-ryhmittely käytti virheellisesti spaceId:ä',
     'Valokuvat: tila/laite-nimi ja kellonaika näkyvät jokaisen kuvan alla',
@@ -2211,7 +2217,8 @@ function renderAllPhotosContent(c, allPhotos) {
   const sorted = [...allPhotos].sort((a, b) =>
     sort === 'newest' ? (b.ts || 0) - (a.ts || 0) : (a.ts || 0) - (b.ts || 0));
 
-  // Tallennetaan koko taulukko lightboxia varten — yksi globaali indeksi
+  // Lisätään globaali indeksi jokaiselle kuvalle sorted-taulukossa
+  sorted.forEach((p, i) => { p._globalIdx = i; });
   _lightboxPhotos = sorted;
 
   let html = '';
@@ -2225,18 +2232,16 @@ function renderAllPhotosContent(c, allPhotos) {
       if (group === 'space') {
         key = p.spaceId ? 'space:' + p.spaceId : 'other';
         name = p.spaceId ? p.groupName : 'Ei tilaa';
-      } else { // device
+      } else {
         key = p.deviceId ? 'device:' + p.deviceId : 'other';
         name = p.deviceId ? p.groupName : 'Ei laitetta';
       }
-      if (!groups[key]) { groups[key] = { name, photos: [], startIdx: 0 }; groupOrder.push(key); }
+      if (!groups[key]) { groups[key] = { name, photos: [] }; groupOrder.push(key); }
       groups[key].photos.push(p);
     }
-    let offset = 0;
-    for (const key of groupOrder) { groups[key].startIdx = offset; offset += groups[key].photos.length; }
     for (const key of groupOrder) {
       html += `<div class="photos-group-title">${escapeHtml(groups[key].name)} (${groups[key].photos.length})</div>`;
-      html += renderPhotoGridIndexed(groups[key].photos, groups[key].startIdx);
+      html += renderPhotoGridByGlobalIdx(groups[key].photos);
     }
   }
 
@@ -2258,7 +2263,28 @@ function renderAllPhotosContent(c, allPhotos) {
   `;
 }
 
+function renderPhotoGridByGlobalIdx(photos) {
+  const journalIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
+  return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
+    ${photos.map(p => {
+      const isJournal = p.source === 'journal';
+      return `<div style="display:flex; flex-direction:column; gap:3px;">
+        <div class="photo-thumb" onclick="openLightbox(${p._globalIdx})" style="position:relative;">
+          <img src="${URL.createObjectURL(p.blob)}">
+          ${isJournal ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:2px 4px;line-height:0;">${journalIconSvg}</div>` : ''}
+        </div>
+        <div style="font-size:10px; color:var(--ink-soft); text-align:center; line-height:1.3; padding:0 2px;">
+          <div>${escapeHtml(p.title || '')}</div>
+          <div>${escapeHtml(p.subtitle || '')}</div>
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
 function renderPhotoGridIndexed(photos, startIdx) {
+  // Pieni inline-SVG kirjakuvake päiväkirjakuville — ei tarvita refreshIcons
+  const journalIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
   return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
     ${photos.map((p, i) => {
       const globalIdx = startIdx + i;
@@ -2266,7 +2292,7 @@ function renderPhotoGridIndexed(photos, startIdx) {
       return `<div style="display:flex; flex-direction:column; gap:3px;">
         <div class="photo-thumb" onclick="openLightbox(${globalIdx})" style="position:relative;">
           <img src="${URL.createObjectURL(p.blob)}">
-          ${isJournal ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:2px 4px;display:flex;align-items:center;">${icon('book-open', 10)}</div>` : ''}
+          ${isJournal ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:2px 4px;line-height:0;">${journalIconSvg}</div>` : ''}
         </div>
         <div style="font-size:10px; color:var(--ink-soft); text-align:center; line-height:1.3; padding:0 2px;">
           <div>${escapeHtml(p.title || '')}</div>
@@ -2285,57 +2311,56 @@ function openLightbox(idx) {
   const p = photos[idx];
   if (!p) return;
 
-  const existing = document.getElementById('lightbox');
-  if (existing) existing.remove();
-
-  const lb = document.createElement('div');
-  lb.className = 'lightbox';
-  lb.id = 'lightbox';
-
   const imgUrl = URL.createObjectURL(p.blob);
   const isJournal = p.source === 'journal';
   const hasPrev = idx > 0;
   const hasNext = idx < photos.length - 1;
 
+  const prevStyle = hasPrev ? '' : 'opacity:0.3; pointer-events:none;';
+  const nextStyle = hasNext ? '' : 'opacity:0.3; pointer-events:none;';
+
   let linkBtn = '';
   if (isJournal && p.entry) {
-    linkBtn = `<button class="lightbox-link" onclick="closeLightbox(); openJournalDetail('${p.entry.id}')">${icon('book-open')} Merkintä</button>`;
+    linkBtn = `<button class="lightbox-link" onclick="closeLightbox(); openJournalDetail('${p.entry.id}')">Merkintä</button>`;
   } else if (p.source === 'gallery') {
-    if (p.spaceId) {
-      linkBtn = `<button class="lightbox-link" onclick="closeLightbox(); pushView({view:'space', id:'${p.spaceId}'})">${icon('layout-grid')} Tila</button>`;
-    } else if (p.deviceId) {
-      linkBtn = `<button class="lightbox-link" onclick="closeLightbox(); pushView({view:'device', id:'${p.deviceId}'})">${icon('plug')} Laite</button>`;
-    }
+    if (p.spaceId) linkBtn = `<button class="lightbox-link" onclick="closeLightbox(); pushView({view:'space', id:'${p.spaceId}'})">Tila</button>`;
+    else if (p.deviceId) linkBtn = `<button class="lightbox-link" onclick="closeLightbox(); pushView({view:'device', id:'${p.deviceId}'})">Laite</button>`;
   }
 
-  lb.innerHTML = `
-    <button class="lightbox-close" onclick="closeLightbox()">${icon('x')}</button>
+  const inner = `
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
     <img class="lightbox-img" src="${imgUrl}">
     <div class="lightbox-bar">
-      <button class="lightbox-link" onclick="openLightbox(${idx - 1})" style="${hasPrev ? '' : 'opacity:0.3; pointer-events:none;'}">${icon('chevron-left')}</button>
+      <button class="lightbox-link" onclick="openLightbox(${idx - 1})" style="${prevStyle}">‹</button>
       <div class="lightbox-info">
         <div class="lightbox-info-title">${escapeHtml(p.title || '')}</div>
         <div class="lightbox-info-sub">${escapeHtml(p.subtitle || '')} · ${idx + 1}/${photos.length}</div>
       </div>
       ${linkBtn}
-      <button class="lightbox-link" onclick="openLightbox(${idx + 1})" style="${hasNext ? '' : 'opacity:0.3; pointer-events:none;'}">${icon('chevron-right')}</button>
+      <button class="lightbox-link" onclick="openLightbox(${idx + 1})" style="${nextStyle}">›</button>
     </div>`;
 
-  lb.onclick = (e) => { if (e.target === lb) closeLightbox(); };
-
-  // Pyyhkäisy navigointiin
-  let startX = 0;
-  lb.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
-  lb.addEventListener('touchend', e => {
-    const diff = startX - e.changedTouches[0].clientX;
-    if (Math.abs(diff) > 50) {
-      if (diff > 0 && hasNext) openLightbox(idx + 1);
-      else if (diff < 0 && hasPrev) openLightbox(idx - 1);
-    }
-  });
-
-  document.body.appendChild(lb);
-  refreshIcons();
+  let lb = document.getElementById('lightbox');
+  if (lb) {
+    // Päivitetään olemassa oleva — ei vilkkumista
+    lb.innerHTML = inner;
+  } else {
+    lb = document.createElement('div');
+    lb.className = 'lightbox';
+    lb.id = 'lightbox';
+    lb.innerHTML = inner;
+    lb.onclick = (e) => { if (e.target === lb) closeLightbox(); };
+    let startX = 0;
+    lb.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+    lb.addEventListener('touchend', e => {
+      const diff = startX - e.changedTouches[0].clientX;
+      if (Math.abs(diff) > 50) {
+        if (diff > 0 && hasNext) openLightbox(idx + 1);
+        else if (diff < 0 && hasPrev) openLightbox(idx - 1);
+      }
+    });
+    document.body.appendChild(lb);
+  }
 }
 
 function closeLightbox() {
