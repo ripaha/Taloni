@@ -1015,7 +1015,7 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.10';
+const APP_VERSION = '0.9.91';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
@@ -1588,15 +1588,6 @@ async function renderNav() {
     return `<button class="${cls}" ${onclick}>${icon(t.icon)}<span>${t.label}</span></button>`;
   }).join('')}</div>`;
   refreshIcons();
-
-  // Scrollaa aktiivinen nappi näkyviin — pieni viive jotta layout on valmis
-  setTimeout(() => {
-    const inner = nav.querySelector('.nav-inner');
-    const active = nav.querySelector('.nav-btn.active');
-    if (inner && active) {
-      active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
-    }
-  }, 50);
 }
 
 function switchToView(tabId, viewId) {
