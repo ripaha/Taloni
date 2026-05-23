@@ -1008,10 +1008,17 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.2';
+const APP_VERSION = '0.9.3';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.9.3', date: '2026-05-23', changes: [
+    'Valokuvat: ryhmitysbugi korjattu — laite-ryhmittely käytti virheellisesti spaceId:ä',
+    'Valokuvat: tila/laite-nimi ja kellonaika näkyvät jokaisen kuvan alla',
+    'Valokuvat: päiväkirjamerkinnän kuvissa pieni kirjaikkoni oikeassa alakulmassa',
+    'Lightbox: edellinen/seuraava -napit alareunassa',
+    'Lightbox: pyyhkäisy vasemmalle/oikealle vaihtaa kuvaa'
+  ]},
   { version: '0.9.2', date: '2026-05-23', changes: [
     'Valokuvat: kellonaika näkyy jokaisen kuvan alla (pvm + klo)',
     'Valokuvat: järjestely perustuu nyt tarkkaan kellonaikaan pelkän päivämäärän sijaan'
@@ -2214,12 +2221,14 @@ function renderAllPhotosContent(c, allPhotos) {
     const groups = {};
     const groupOrder = [];
     for (const p of sorted) {
-      const key = group === 'space'
-        ? (p.spaceId ? 'space:' + p.spaceId : 'other')
-        : (p.deviceId ? 'device:' + p.deviceId : 'other');
-      const name = group === 'space'
-        ? (p.spaceId ? p.groupName : 'Ei tilaa')
-        : (p.deviceId ? p.groupName : 'Ei laitetta');
+      let key, name;
+      if (group === 'space') {
+        key = p.spaceId ? 'space:' + p.spaceId : 'other';
+        name = p.spaceId ? p.groupName : 'Ei tilaa';
+      } else { // device
+        key = p.deviceId ? 'device:' + p.deviceId : 'other';
+        name = p.deviceId ? p.groupName : 'Ei laitetta';
+      }
       if (!groups[key]) { groups[key] = { name, photos: [], startIdx: 0 }; groupOrder.push(key); }
       groups[key].photos.push(p);
     }
@@ -2253,11 +2262,16 @@ function renderPhotoGridIndexed(photos, startIdx) {
   return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
     ${photos.map((p, i) => {
       const globalIdx = startIdx + i;
+      const isJournal = p.source === 'journal';
       return `<div style="display:flex; flex-direction:column; gap:3px;">
-        <div class="photo-thumb" onclick="openLightbox(${globalIdx})">
+        <div class="photo-thumb" onclick="openLightbox(${globalIdx})" style="position:relative;">
           <img src="${URL.createObjectURL(p.blob)}">
+          ${isJournal ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:2px 4px;display:flex;align-items:center;">${icon('book-open', 10)}</div>` : ''}
         </div>
-        <div style="font-size:11px; color:var(--ink-soft); text-align:center;">${escapeHtml(p.subtitle || '')}</div>
+        <div style="font-size:10px; color:var(--ink-soft); text-align:center; line-height:1.3; padding:0 2px;">
+          <div>${escapeHtml(p.title || '')}</div>
+          <div>${escapeHtml(p.subtitle || '')}</div>
+        </div>
       </div>`;
     }).join('')}
   </div>`;
@@ -2267,6 +2281,7 @@ function renderPhotoGridIndexed(photos, startIdx) {
 function openLightbox(idx) {
   const photos = _lightboxPhotos;
   if (!photos?.length) return;
+  idx = Math.max(0, Math.min(idx, photos.length - 1));
   const p = photos[idx];
   if (!p) return;
 
@@ -2278,10 +2293,12 @@ function openLightbox(idx) {
   lb.id = 'lightbox';
 
   const imgUrl = URL.createObjectURL(p.blob);
+  const isJournal = p.source === 'journal';
+  const hasPrev = idx > 0;
+  const hasNext = idx < photos.length - 1;
 
-  // Navigointilinkin määritys
   let linkBtn = '';
-  if (p.source === 'journal' && p.entry) {
+  if (isJournal && p.entry) {
     linkBtn = `<button class="lightbox-link" onclick="closeLightbox(); openJournalDetail('${p.entry.id}')">${icon('book-open')} Merkintä</button>`;
   } else if (p.source === 'gallery') {
     if (p.spaceId) {
@@ -2295,15 +2312,28 @@ function openLightbox(idx) {
     <button class="lightbox-close" onclick="closeLightbox()">${icon('x')}</button>
     <img class="lightbox-img" src="${imgUrl}">
     <div class="lightbox-bar">
+      <button class="lightbox-link" onclick="openLightbox(${idx - 1})" style="${hasPrev ? '' : 'opacity:0.3; pointer-events:none;'}">${icon('chevron-left')}</button>
       <div class="lightbox-info">
         <div class="lightbox-info-title">${escapeHtml(p.title || '')}</div>
-        <div class="lightbox-info-sub">${escapeHtml(p.subtitle || '')}</div>
+        <div class="lightbox-info-sub">${escapeHtml(p.subtitle || '')} · ${idx + 1}/${photos.length}</div>
       </div>
       ${linkBtn}
+      <button class="lightbox-link" onclick="openLightbox(${idx + 1})" style="${hasNext ? '' : 'opacity:0.3; pointer-events:none;'}">${icon('chevron-right')}</button>
     </div>`;
 
-  // Sulje klikkaamalla taustaa
   lb.onclick = (e) => { if (e.target === lb) closeLightbox(); };
+
+  // Pyyhkäisy navigointiin
+  let startX = 0;
+  lb.addEventListener('touchstart', e => { startX = e.touches[0].clientX; }, { passive: true });
+  lb.addEventListener('touchend', e => {
+    const diff = startX - e.changedTouches[0].clientX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && hasNext) openLightbox(idx + 1);
+      else if (diff < 0 && hasPrev) openLightbox(idx - 1);
+    }
+  });
+
   document.body.appendChild(lb);
   refreshIcons();
 }
