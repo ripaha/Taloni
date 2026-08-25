@@ -1083,10 +1083,14 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.3';
+const APP_VERSION = '0.10.4';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.4', date: '2026-05-24', changes: [
+    'Valokuvat: kuvien koko ei enää riipu otsikon pituudesta — kuvateksti rajattu kiinteään korkeuteen',
+    'Päiväkirja: yleiset merkinnät ja projektimerkinnät eritelty omiin ryhmiinsä projektin nimellä'
+  ]},
   { version: '0.10.3', date: '2026-05-24', changes: [
     'Tilakortille voi nyt lisätä pintamateriaaleja suoraan ilman projektia',
     'Projektien pintamateriaalit näkyvät edelleen erikseen omalla otsikollaan',
@@ -2111,7 +2115,8 @@ function renderJournalCard(entry, showLocation) {
   let location = '';
   if (showLocation) {
     // näytetään minne kuuluu
-    if (entry._spaceName) location = `<span class="dot">·</span><span>${escapeHtml(entry._spaceName)}</span>`;
+    if (entry._projectName) location = `<span class="dot">·</span><span>${escapeHtml(entry._projectName)}</span>`;
+    else if (entry._spaceName) location = `<span class="dot">·</span><span>${escapeHtml(entry._spaceName)}</span>`;
     else if (entry._deviceName) location = `<span class="dot">·</span><span>${escapeHtml(entry._deviceName)}</span>`;
   }
   const photoCount = entry.photos?.length || 0;
@@ -2232,13 +2237,16 @@ async function renderJournal() {
   entries.sort((a, b) => b.date.localeCompare(a.date));
   const spaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
   const devices = await dbWhere('devices', 'propertyId', state.currentPropertyId);
+  const projects = await dbWhere('projects', 'propertyId', state.currentPropertyId);
   const spaceMap = Object.fromEntries(spaces.map(s => [s.id, s]));
   const deviceMap = Object.fromEntries(devices.map(d => [d.id, d]));
+  const projectMap = Object.fromEntries(projects.map(p => [p.id, p]));
 
   // Lisää näytettävä lähde
   for (const e of entries) {
     if (e.spaceId) e._spaceName = spaceMap[e.spaceId]?.name;
     if (e.deviceId) e._deviceName = deviceMap[e.deviceId]?.name;
+    if (e.projectId) e._projectName = projectMap[e.projectId]?.title;
   }
 
   if (entries.length === 0) {
@@ -2254,10 +2262,31 @@ async function renderJournal() {
     return;
   }
 
+  const projectEntries = entries.filter(e => e.projectId);
+  const normalEntries = entries.filter(e => !e.projectId);
+
+  // Ryhmitellään projektimerkinnät projektin mukaan
+  const projectGroups = {};
+  const projectOrder = [];
+  for (const e of projectEntries) {
+    const key = e.projectId;
+    if (!projectGroups[key]) { projectGroups[key] = []; projectOrder.push(key); }
+    projectGroups[key].push(e);
+  }
+
   c.innerHTML = `
     <h1 class="page-title">Päiväkirja</h1>
     <p class="page-subtitle">${entries.length} ${entries.length === 1 ? 'merkintä' : 'merkintää'}</p>
-    ${entries.map(e => renderJournalCard(e, true)).join('')}
+
+    ${normalEntries.length > 0 ? `
+      <div class="section-title"><span>Yleiset merkinnät</span></div>
+      ${normalEntries.map(e => renderJournalCard(e, true)).join('')}
+    ` : ''}
+
+    ${projectOrder.map(pid => `
+      <div class="section-title"><span>${escapeHtml(projectMap[pid]?.title || 'Projekti')}</span></div>
+      ${projectGroups[pid].map(e => renderJournalCard(e, false)).join('')}
+    `).join('')}
   `;
 }
 
@@ -2499,17 +2528,17 @@ function renderAllPhotosContent(c, allPhotos) {
 
 function renderPhotoGridByGlobalIdx(photos) {
   const journalIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
-  return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
+  return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr); align-items: start;">
     ${photos.map(p => {
       const isJournal = p.source === 'journal';
-      return `<div style="display:flex; flex-direction:column; gap:3px;">
-        <div class="photo-thumb" onclick="openLightbox(${p._globalIdx})" style="position:relative;">
+      return `<div style="display:flex; flex-direction:column; gap:3px; width:100%;">
+        <div class="photo-thumb" onclick="openLightbox(${p._globalIdx})" style="position:relative; flex-shrink:0;">
           <img src="${URL.createObjectURL(p.blob)}">
           ${isJournal ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:2px 4px;line-height:0;">${journalIconSvg}</div>` : ''}
         </div>
-        <div style="font-size:10px; color:var(--ink-soft); text-align:center; line-height:1.3; padding:0 2px;">
-          <div>${escapeHtml(p.title || '')}</div>
-          <div>${escapeHtml(p.subtitle || '')}</div>
+        <div style="font-size:10px; color:var(--ink-soft); text-align:center; line-height:1.25; padding:0 2px; height:26px; overflow:hidden;">
+          <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.title || '')}</div>
+          <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.subtitle || '')}</div>
         </div>
       </div>`;
     }).join('')}
@@ -2519,18 +2548,18 @@ function renderPhotoGridByGlobalIdx(photos) {
 function renderPhotoGridIndexed(photos, startIdx) {
   // Pieni inline-SVG kirjakuvake päiväkirjakuville — ei tarvita refreshIcons
   const journalIconSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>`;
-  return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr);">
+  return `<div class="photo-grid" style="grid-template-columns: repeat(3, 1fr); align-items: start;">
     ${photos.map((p, i) => {
       const globalIdx = startIdx + i;
       const isJournal = p.source === 'journal';
-      return `<div style="display:flex; flex-direction:column; gap:3px;">
-        <div class="photo-thumb" onclick="openLightbox(${globalIdx})" style="position:relative;">
+      return `<div style="display:flex; flex-direction:column; gap:3px; width:100%;">
+        <div class="photo-thumb" onclick="openLightbox(${globalIdx})" style="position:relative; flex-shrink:0;">
           <img src="${URL.createObjectURL(p.blob)}">
           ${isJournal ? `<div style="position:absolute;bottom:4px;right:4px;background:rgba(0,0,0,0.55);border-radius:4px;padding:2px 4px;line-height:0;">${journalIconSvg}</div>` : ''}
         </div>
-        <div style="font-size:10px; color:var(--ink-soft); text-align:center; line-height:1.3; padding:0 2px;">
-          <div>${escapeHtml(p.title || '')}</div>
-          <div>${escapeHtml(p.subtitle || '')}</div>
+        <div style="font-size:10px; color:var(--ink-soft); text-align:center; line-height:1.25; padding:0 2px; height:26px; overflow:hidden;">
+          <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.title || '')}</div>
+          <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escapeHtml(p.subtitle || '')}</div>
         </div>
       </div>`;
     }).join('')}
