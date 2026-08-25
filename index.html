@@ -798,11 +798,16 @@ body {
 }
 .area-type-header span:first-child { font-size: 13px; font-weight: 600; color: var(--ink); }
 .area-type-header span:last-child { font-size: 13px; font-weight: 700; color: var(--accent); }
+.area-row-item { border-bottom: 1px solid var(--border-soft); }
+.area-row-item:last-child { border-bottom: none; }
 .area-row-compact {
   display: flex; align-items: center; gap: 5px;
-  padding: 5px 0; border-bottom: 1px solid var(--border-soft);
+  padding: 5px 0;
 }
-.area-row-compact:last-child { border-bottom: none; }
+.area-row-result {
+  text-align: right; font-size: 11px; color: var(--ink-soft);
+  padding: 0 4px 6px; margin-top: -2px;
+}
 .area-sign-btn {
   flex-shrink: 0; width: 30px; height: 30px;
   border: 1px solid var(--border); border-radius: 8px;
@@ -1126,10 +1131,14 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.7';
+const APP_VERSION = '0.10.8';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.8', date: '2026-05-24', changes: [
+    'Pinta-alat: osion summassa näkyy laskukaava, esim. "6.00 − 1.08 = 4.92 m²"',
+    'Pinta-alat: jokaisen rivin oma m²-tulos näkyy pienellä rivin alla ilman erillistä saraketta'
+  ]},
   { version: '0.10.7', date: '2026-05-24', changes: [
     'Pinta-alat uudistettu selkeämmäksi: ryhmitelty Seinät/Lattia/Katto -osioihin (kuten Kustannukset)',
     'Ei enää tyyppivalikkoa joka rivillä — rivi mahtuu yhdelle riville: +/− nappi, kuvaus, leveys × korkeus',
@@ -3086,15 +3095,22 @@ async function openAreasModal(projectId) {
 function renderAreaRows(spaceId, type) {
   const rows = state._areasDraft[spaceId][type];
   const el = document.getElementById(`areaRows_${spaceId}_${type}`);
-  el.innerHTML = rows.map((r, i) => `
-    <div class="area-row-compact">
-      <button class="area-sign-btn ${r.sign === '-' ? 'minus' : ''}" onclick="toggleAreaSign('${spaceId}','${type}',${i})">${r.sign === '-' ? '−' : '+'}</button>
-      <input type="text" class="area-desc-input" value="${escapeHtml(r.desc || '')}" placeholder="Kuvaus" oninput="state._areasDraft['${spaceId}']['${type}'][${i}].desc=this.value">
-      <input type="number" step="0.01" class="area-dim-input" value="${r.w || ''}" placeholder="Lev." oninput="state._areasDraft['${spaceId}']['${type}'][${i}].w=this.value; updateAreaTypeTotal('${spaceId}','${type}')">
-      <span class="area-x">×</span>
-      <input type="number" step="0.01" class="area-dim-input" value="${r.h || ''}" placeholder="Kork." oninput="state._areasDraft['${spaceId}']['${type}'][${i}].h=this.value; updateAreaTypeTotal('${spaceId}','${type}')">
-      <button class="row-remove" onclick="removeAreaRow('${spaceId}','${type}',${i})">${icon('x')}</button>
-    </div>`).join('');
+  el.innerHTML = rows.map((r, i) => {
+    const w = parseFloat(r.w) || 0, h = parseFloat(r.h) || 0;
+    const hasArea = w > 0 && h > 0;
+    const area = w * h;
+    return `<div class="area-row-item">
+      <div class="area-row-compact">
+        <button class="area-sign-btn ${r.sign === '-' ? 'minus' : ''}" onclick="toggleAreaSign('${spaceId}','${type}',${i})">${r.sign === '-' ? '−' : '+'}</button>
+        <input type="text" class="area-desc-input" value="${escapeHtml(r.desc || '')}" placeholder="Kuvaus" oninput="state._areasDraft['${spaceId}']['${type}'][${i}].desc=this.value">
+        <input type="number" step="0.01" class="area-dim-input" value="${r.w || ''}" placeholder="Lev." oninput="state._areasDraft['${spaceId}']['${type}'][${i}].w=this.value; updateAreaTypeTotal('${spaceId}','${type}')">
+        <span class="area-x">×</span>
+        <input type="number" step="0.01" class="area-dim-input" value="${r.h || ''}" placeholder="Kork." oninput="state._areasDraft['${spaceId}']['${type}'][${i}].h=this.value; updateAreaTypeTotal('${spaceId}','${type}')">
+        <button class="row-remove" onclick="removeAreaRow('${spaceId}','${type}',${i})">${icon('x')}</button>
+      </div>
+      ${hasArea ? `<div class="area-row-result">${r.sign === '-' ? '−' : ''}${area.toFixed(2)} m²</div>` : ''}
+    </div>`;
+  }).join('');
   refreshIcons();
   updateAreaTypeTotal(spaceId, type);
 }
@@ -3107,12 +3123,25 @@ function toggleAreaSign(spaceId, type, idx) {
 
 function updateAreaTypeTotal(spaceId, type) {
   const rows = state._areasDraft[spaceId][type];
-  const total = rows.reduce((sum, r) => {
+  const terms = [];
+  let total = 0;
+  for (const r of rows) {
     const area = (parseFloat(r.w) || 0) * (parseFloat(r.h) || 0);
-    return sum + (r.sign === '-' ? -area : area);
-  }, 0);
+    if (area === 0) continue;
+    total += r.sign === '-' ? -area : area;
+    terms.push({ sign: r.sign === '-' ? '-' : '+', value: area });
+  }
   const el = document.getElementById(`areaTypeTotal_${spaceId}_${type}`);
-  if (el) el.textContent = total.toFixed(2) + ' m²';
+  if (!el) return;
+  if (terms.length <= 1) {
+    el.textContent = total.toFixed(2) + ' m²';
+  } else {
+    const formula = terms.map((t, i) => {
+      if (i === 0) return t.sign === '-' ? `−${t.value.toFixed(2)}` : t.value.toFixed(2);
+      return ` ${t.sign === '-' ? '−' : '+'} ${t.value.toFixed(2)}`;
+    }).join('');
+    el.innerHTML = `<span style="font-weight:400; color:var(--ink-soft);">${formula} =</span> ${total.toFixed(2)} m²`;
+  }
 }
 
 function addAreaRow(spaceId, type) {
