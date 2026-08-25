@@ -600,11 +600,12 @@ body {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px;
 }
 .photo-thumb {
-  aspect-ratio: 1; background: var(--bg-soft);
+  position: relative; width: 100%; padding-top: 100%;
+  background: var(--bg-soft);
   border-radius: 10px; overflow: hidden;
-  position: relative; cursor: pointer;
+  cursor: pointer;
 }
-.photo-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.photo-thumb img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 .photo-thumb .remove {
   position: absolute; top: 5px; right: 5px;
   width: 24px; height: 24px;
@@ -772,6 +773,12 @@ body {
 .cost-row:last-child { border-bottom: none; }
 .cost-row input[type="text"] { flex: 1; padding: 8px 10px; font-size: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); }
 .cost-row input[type="number"] { width: 84px; text-align: right; padding: 8px 10px; font-size: 14px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--ink); }
+.cost-amount-wrap { position: relative; flex-shrink: 0; }
+.cost-amount-wrap input[type="number"] { padding-right: 22px; width: 84px; }
+.cost-currency {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font-size: 13px; color: var(--ink-soft); pointer-events: none;
+}
 .cost-row .row-remove {
   width: 28px; height: 28px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -1076,10 +1083,16 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.2';
+const APP_VERSION = '0.10.3';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.3', date: '2026-05-24', changes: [
+    'Tilakortille voi nyt lisätä pintamateriaaleja suoraan ilman projektia',
+    'Projektien pintamateriaalit näkyvät edelleen erikseen omalla otsikollaan',
+    'Kustannusriveille lisätty €-merkki summakentän yhteyteen',
+    'Valokuvat: kuvien koko yhtenäistetty listanäkymässä (padding-tekniikka aspect-ration sijaan)'
+  ]},
   { version: '0.10.2', date: '2026-05-24', changes: [
     'Kustannusrivit tiiviimmiksi projektin lomakkeessa',
     'Pintamateriaalit näkyvät nyt myös tilakortilla jos tila liittyy projektiin',
@@ -2045,10 +2058,15 @@ async function renderSpaceView(spaceId) {
           </div>
         </div>
       </div>`).join('')}
-    ${materialsHtml ? `
-    <div class="section-title"><span>Pintamateriaalit</span></div>
-    ${materialsHtml}` : ''}
     ` : ''}
+
+    <div class="section-title">
+      <span>Pintamateriaalit${(space.materials || []).length > 0 ? ` (${(space.materials || []).length})` : ''}</span>
+      <span class="action" onclick="openSpaceMaterialsModal('${spaceId}')">${icon('pencil')}Muokkaa</span>
+    </div>
+    ${(space.materials || []).length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei materiaaleja</div>` :
+      (space.materials || []).map(r => `<div style="font-size:14px; padding:4px 0; border-bottom:1px solid var(--border-soft);">${escapeHtml(r)}</div>`).join('')}
+    ${materialsHtml}
 
     <div class="section-title">
       <span>Päiväkirja${journals.length > 0 ? ` (${journals.length})` : ''}</span>
@@ -2874,7 +2892,10 @@ function renderCostRows(kind) {
   el.innerHTML = rows.map((r, i) => `
     <div class="cost-row">
       <input type="text" value="${escapeHtml(r.desc || '')}" placeholder="Kuvaus" oninput="state._costsDraft.${kind}[${i}].desc=this.value">
-      <input type="number" step="0.01" value="${r.amount || ''}" placeholder="0.00" oninput="state._costsDraft.${kind}[${i}].amount=this.value">
+      <div class="cost-amount-wrap">
+        <input type="number" step="0.01" value="${r.amount || ''}" placeholder="0.00" oninput="state._costsDraft.${kind}[${i}].amount=this.value">
+        <span class="cost-currency">€</span>
+      </div>
       <button class="row-remove" onclick="removeCostRow('${kind}', ${i})">${icon('x')}</button>
     </div>`).join('');
   refreshIcons();
@@ -2954,6 +2975,33 @@ async function saveMaterials(projectId) {
   }
   p.materials = cleaned;
   await dbPut('projects', p);
+  closeModal();
+  toast('Materiaalit tallennettu');
+  render();
+}
+
+// --- Tilan omat pintamateriaalit (ilman projektia) ---
+async function openSpaceMaterialsModal(spaceId) {
+  const space = await dbGet('spaces', spaceId);
+  state._materialsDraft = { [spaceId]: JSON.parse(JSON.stringify(space.materials || [])) };
+
+  openModal(`
+    <div class="modal-title">Pintamateriaalit</div>
+    <div class="modal-subtitle">${escapeHtml(space.name)}</div>
+    <div id="materialRows_${spaceId}"></div>
+    <button class="btn btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addMaterialRow('${spaceId}')">${icon('plus')}Lisää rivi</button>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveSpaceMaterials('${spaceId}')">Tallenna</button>
+    </div>`);
+  renderMaterialRows(spaceId);
+}
+
+async function saveSpaceMaterials(spaceId) {
+  const space = await dbGet('spaces', spaceId);
+  const rows = (state._materialsDraft[spaceId] || []).filter(r => r && r.trim());
+  space.materials = rows;
+  await dbPut('spaces', space);
   closeModal();
   toast('Materiaalit tallennettu');
   render();
