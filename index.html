@@ -733,6 +733,60 @@ body {
 .reminder-alert-text { flex: 1; }
 .reminder-alert-title { font-size: 14px; font-weight: 600; color: #78350f; margin: 0 0 2px; }
 .reminder-alert-sub { font-size: 12px; color: #92400e; margin: 0; }
+
+/* --- Projektit --- */
+.project-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius);
+  padding: 14px 16px;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+.project-card-header { display: flex; align-items: flex-start; gap: 12px; }
+.project-icon {
+  width: 36px; height: 36px; border-radius: var(--radius-sm);
+  background: #fef3c7; color: #92400e;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.project-card-info { flex: 1; min-width: 0; }
+.project-card-name { font-size: 15px; font-weight: 600; color: var(--ink); margin: 0 0 3px; }
+.project-status-badge {
+  display: inline-block; font-size: 11px; font-weight: 600;
+  padding: 2px 8px; border-radius: 100px;
+}
+.project-status-suunnitteilla { background: #e0e7ff; color: #3730a3; }
+.project-status-käynnissä { background: #fef3c7; color: #92400e; }
+.project-status-valmis { background: #dcfce7; color: #166534; }
+.project-card-dates { font-size: 12px; color: var(--ink-soft); margin-top: 4px; }
+.project-space-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 8px; }
+.project-space-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 100px;
+  background: var(--bg-soft); color: var(--ink-soft);
+}
+.cost-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-soft);
+}
+.cost-row:last-child { border-bottom: none; }
+.cost-row input[type="text"] { flex: 1; }
+.cost-row input[type="number"] { width: 100px; text-align: right; }
+.cost-total-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 0 0; margin-top: 4px; font-weight: 700; font-size: 15px;
+}
+.material-row {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 8px 0; border-bottom: 1px solid var(--border-soft);
+}
+.material-row:last-child { border-bottom: none; }
+.material-row textarea { flex: 1; }
+.material-space-title {
+  font-size: 12px; font-weight: 600; color: var(--accent);
+  text-transform: uppercase; letter-spacing: 0.04em;
+  margin: 16px 0 6px;
+}
 .detail-hero {
   background: linear-gradient(135deg, var(--accent-pale) 0%, var(--accent-soft) 100%);
   border-radius: var(--radius);
@@ -1015,10 +1069,18 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.9.96';
+const APP_VERSION = '0.10.0';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.0', date: '2026-05-24', changes: [
+    'Projektit-osio: nimi, tila (suunnitteilla/käynnissä/valmis), aloitus- ja lopetuspäivä',
+    'Projekti voi liittyä useaan tilaan samanaikaisesti',
+    'Kustannukset: arvioidut ja toteutuneet, yksittäiset kulurivit + automaattinen yhteissumma',
+    'Pintamateriaalit: vapaa tekstirivi-lista per liitetty tila',
+    'Projektille oma päiväkirja, valokuvat ja asiakirjat — samaan tapaan kuin tiloilla/laitteilla',
+    'Projektit-linkki alanaviin, etusivun "Käynnissä"-kortit linkittyvät nyt oikein'
+  ]},
   { version: '0.9.7', date: '2026-05-23', changes: [
     'Alavalikko: aktiivinen nappi korjattu — Kulutus ei enää korosta, Asetukset korostuu oikein',
     'Alavalikko: scroll käyttää scrollIntoView eikä enää hyppää ohi'
@@ -1245,7 +1307,7 @@ async function installApp() {
 // IndexedDB
 // ============================================================
 const DB_NAME = 'taloni';
-const DB_VERSION = 3;
+const DB_VERSION = 4;
 let db = null;
 
 const STORES = ['properties', 'spaces', 'devices', 'maintenanceItems', 'maintenanceLogs',
@@ -1280,6 +1342,10 @@ function openDB() {
           const s = db.createObjectStore('journalEntries', { keyPath: 'id' });
           s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
           s.createIndex('projectId', 'projectId');
+        } else {
+          const tx = e.target.transaction;
+          const jStore = tx.objectStore('journalEntries');
+          if (!jStore.indexNames.contains('projectId')) jStore.createIndex('projectId', 'projectId');
         }
         if (!db.objectStoreNames.contains('projects')) {
           const s = db.createObjectStore('projects', { keyPath: 'id' });
@@ -1288,7 +1354,12 @@ function openDB() {
         if (!db.objectStoreNames.contains('documents')) {
           const s = db.createObjectStore('documents', { keyPath: 'id' });
           s.createIndex('propertyId', 'propertyId'); s.createIndex('spaceId', 'spaceId');
-          s.createIndex('deviceId', 'deviceId');
+          s.createIndex('deviceId', 'deviceId'); s.createIndex('projectId', 'projectId');
+        } else {
+          // Migraatio: lisätään projectId-indeksi jos puuttuu
+          const tx = e.target.transaction;
+          const docStore = tx.objectStore('documents');
+          if (!docStore.indexNames.contains('projectId')) docStore.createIndex('projectId', 'projectId');
         }
         if (!db.objectStoreNames.contains('contacts')) {
           const s = db.createObjectStore('contacts', { keyPath: 'id' });
@@ -1596,6 +1667,7 @@ async function renderNav() {
     { id: 'journal',   label: 'Päiväkirja',    icon: 'book-open' },
     { id: 'more',      label: 'Muistutukset',  icon: 'bell',        view: 'remindersList' },
     { id: 'more',      label: 'Valokuvat',     icon: 'images',      view: 'allPhotos' },
+    { id: 'more',      label: 'Projektit',     icon: 'hammer',      view: 'projectsList' },
     { id: 'spaces',    label: 'Tilat',         icon: 'layout-grid' },
     { id: 'more',      label: 'Laitteet',      icon: 'plug',        view: 'devicesList' },
     { id: 'more',      label: 'Kulutus',       icon: 'activity',    disabled: true },
@@ -1660,6 +1732,8 @@ async function renderContent() {
       if (top.view === 'gallery') return renderGallery(top);
     if (top.view === 'allPhotos') return renderAllPhotos();
     if (top.view === 'generalSettings') return renderGeneralSettings();
+    if (top.view === 'projectsList') return renderProjectsList();
+    if (top.view === 'project') return renderProjectDetail(top.id);
     }
     if (state.currentTab === 'home') return renderHome();
     if (state.currentTab === 'spaces') return renderSpaces();
@@ -1798,7 +1872,7 @@ async function renderHome() {
     ${projects.length > 0 ? `
       <div class="section-title">Käynnissä</div>
       ${projects.map(p => `
-        <div class="card" onclick="toast('Projektit tulossa myöhemmin')">
+        <div class="card" onclick="pushView({view:'project', id:'${p.id}'})">
           <div class="card-row">
             <div class="card-icon warm">${icon('hammer')}</div>
             <div class="card-main">
@@ -2022,6 +2096,9 @@ async function collectGalleryPhotos(opts) {
   } else if (opts.deviceId) {
     journals = (await dbAll('journalEntries')).filter(j => j.deviceId === opts.deviceId);
     galleryDocs = (await dbWhere('documents', 'deviceId', opts.deviceId)).filter(d => d.category === 'galleria');
+  } else if (opts.projectId) {
+    journals = (await dbAll('journalEntries')).filter(j => j.projectId === opts.projectId);
+    galleryDocs = (await dbWhere('documents', 'projectId', opts.projectId)).filter(d => d.category === 'galleria');
   } else {
     journals = await dbWhere('journalEntries', 'propertyId', state.currentPropertyId);
     galleryDocs = (await dbWhere('documents', 'propertyId', state.currentPropertyId)).filter(d => d.category === 'galleria');
@@ -2033,18 +2110,18 @@ async function collectGalleryPhotos(opts) {
   return photos;
 }
 
-function renderGalleryPreview(photos, spaceId, deviceId) {
-  const inputId = 'galInline_' + (spaceId || deviceId || 'x');
+function renderGalleryPreview(photos, spaceId, deviceId, projectId) {
+  const inputId = 'galInline_' + (spaceId || deviceId || projectId || 'x');
   return `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr);">
     ${photos.slice(0, 6).map(p => `<div class="photo-thumb"><img src="${URL.createObjectURL(p.blob)}"></div>`).join('')}
     <button class="photo-add" onclick="document.getElementById('${inputId}_cam').click()">${icon('camera')}<span class="label">Ota kuva kameralla</span></button>
     <button class="photo-add" onclick="document.getElementById('${inputId}_gal').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>
-    <input type="file" id="${inputId}_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
-    <input type="file" id="${inputId}_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}')">
+    <input type="file" id="${inputId}_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}', '${projectId || ''}')">
+    <input type="file" id="${inputId}_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${spaceId || ''}', '${deviceId || ''}', '${projectId || ''}')">
   </div>`;
 }
 
-async function saveInlineGalleryPhotos(event, spaceId, deviceId) {
+async function saveInlineGalleryPhotos(event, spaceId, deviceId, projectId) {
   const files = Array.from(event.target.files);
   if (files.length === 0) return;
   toast('Tallennetaan…');
@@ -2052,7 +2129,7 @@ async function saveInlineGalleryPhotos(event, spaceId, deviceId) {
     const photo = await compressImage(f);
     await dbPut('documents', {
       id: uid(), propertyId: state.currentPropertyId,
-      spaceId: spaceId || null, deviceId: deviceId || null,
+      spaceId: spaceId || null, deviceId: deviceId || null, projectId: projectId || null,
       title: 'Valokuva', category: 'galleria',
       notes: '', fileName: 'kuva.jpg', mimeType: photo.type || 'image/jpeg',
       size: photo.size, blob: photo, created: Date.now()
@@ -2134,6 +2211,11 @@ async function renderJournalList(context) {
     const device = await dbGet('devices', context.deviceId);
     title = device?.name || 'Laite';
     subtitle = 'Päiväkirja';
+  } else if (context.projectId) {
+    entries = (await dbAll('journalEntries')).filter(j => j.projectId === context.projectId);
+    const project = await dbGet('projects', context.projectId);
+    title = project?.title || 'Projekti';
+    subtitle = 'Päiväkirja';
   } else {
     entries = await dbWhere('journalEntries', 'propertyId', state.currentPropertyId);
     title = 'Päiväkirja';
@@ -2153,6 +2235,7 @@ async function renderGallery(context) {
   let title;
   const sid = context.spaceId || '';
   const did = context.deviceId || '';
+  const pid = context.projectId || '';
 
   if (context.spaceId) {
     const space = await dbGet('spaces', context.spaceId);
@@ -2160,17 +2243,20 @@ async function renderGallery(context) {
   } else if (context.deviceId) {
     const device = await dbGet('devices', context.deviceId);
     title = device?.name || 'Laite';
+  } else if (context.projectId) {
+    const project = await dbGet('projects', context.projectId);
+    title = project?.title || 'Projekti';
   } else {
     title = 'Valokuvat';
   }
 
   const photos = await collectGalleryPhotos(context);
 
-  const addGrid = (sid || did) ? `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
+  const addGrid = (sid || did || pid) ? `<div class="photo-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 16px;">
     <button class="photo-add" onclick="document.getElementById('galFull_cam').click()">${icon('camera')}<span class="label">Ota kuva kameralla</span></button>
     <button class="photo-add" onclick="document.getElementById('galFull_gal').click()">${icon('image')}<span class="label">Lisää galleriasta</span></button>
-    <input type="file" id="galFull_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
-    <input type="file" id="galFull_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}')">
+    <input type="file" id="galFull_cam" accept="image/*" capture="environment" style="display:none" onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}', '${pid}')">
+    <input type="file" id="galFull_gal" accept="image/*" style="display:none" multiple onchange="saveInlineGalleryPhotos(event, '${sid}', '${did}', '${pid}')">
   </div>` : '';
 
   if (photos.length === 0) {
@@ -2451,6 +2537,375 @@ function openLightbox(idx) {
 function closeLightbox() {
   const lb = document.getElementById('lightbox');
   if (lb) lb.remove();
+}
+
+// ============================================================
+// Projektit
+// ============================================================
+async function renderProjectsList() {
+  const c = document.getElementById('content');
+  document.getElementById('fab').style.display = 'flex';
+  const projects = await dbWhere('projects', 'propertyId', state.currentPropertyId);
+  const order = { 'käynnissä': 0, 'suunnitteilla': 1, 'valmis': 2 };
+  projects.sort((a, b) => (order[a.status] ?? 3) - (order[b.status] ?? 3) || (b.created || 0) - (a.created || 0));
+
+  c.innerHTML = `
+    <h1 class="page-title">Projektit</h1>
+    <p class="page-subtitle">${projects.length} ${projects.length === 1 ? 'projekti' : 'projektia'}</p>
+    ${projects.length === 0 ? `<div class="empty">
+      <div class="empty-icon-circle">${icon('hammer')}</div>
+      <div class="empty-title">Ei projekteja</div>
+      <div class="empty-text">Lisää remontti tai hanke kustannusseurantoineen</div>
+    </div>` : ''}
+    ${await Promise.all(projects.map(renderProjectCard)).then(arr => arr.join(''))}
+  `;
+}
+
+async function renderProjectCard(p) {
+  const spaceIds = p.spaceIds || [];
+  let spaceNames = [];
+  if (spaceIds.length > 0) {
+    const spaces = await Promise.all(spaceIds.map(id => dbGet('spaces', id)));
+    spaceNames = spaces.filter(Boolean).map(s => s.name);
+  }
+  const dateRange = [p.startDate ? fmtDate(p.startDate) : null, p.endDate ? fmtDate(p.endDate) : null]
+    .filter(Boolean).join(' – ');
+
+  return `<div class="project-card" onclick="pushView({view:'project', id:'${p.id}'})">
+    <div class="project-card-header">
+      <div class="project-icon">${icon('hammer')}</div>
+      <div class="project-card-info">
+        <div class="project-card-name">${escapeHtml(p.title)}</div>
+        <span class="project-status-badge project-status-${p.status || 'suunnitteilla'}">${escapeHtml(statusLabel(p.status))}</span>
+        ${dateRange ? `<div class="project-card-dates">${escapeHtml(dateRange)}</div>` : ''}
+        ${spaceNames.length > 0 ? `<div class="project-space-tags">${spaceNames.map(n => `<span class="project-space-tag">${escapeHtml(n)}</span>`).join('')}</div>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function statusLabel(status) {
+  switch (status) {
+    case 'käynnissä': return 'Käynnissä';
+    case 'valmis': return 'Valmis';
+    default: return 'Suunnitteilla';
+  }
+}
+
+function openAddProjectModal() {
+  openModal(`
+    <div class="modal-title">Uusi projekti</div>
+    ${projectFormFieldsHtml(null)}
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveProject()">Tallenna</button>
+    </div>`);
+}
+
+async function openEditProjectModal(id) {
+  const p = await dbGet('projects', id);
+  if (!p) return;
+  openModal(`
+    <div class="modal-title">Muokkaa projektia</div>
+    ${await projectFormFieldsHtml(p)}
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveProject('${id}')">Tallenna</button>
+    </div>`);
+}
+
+async function projectFormFieldsHtml(p) {
+  const spaces = await dbWhere('spaces', 'propertyId', state.currentPropertyId);
+  const selectedIds = p?.spaceIds || [];
+  return `
+    <div class="field"><label class="field-label">Nimi *</label>
+      <input class="field-input" id="pTitle" value="${escapeHtml(p?.title || '')}" placeholder="esim. Kylpyhuoneremontti">
+    </div>
+    <div class="field"><label class="field-label">Tila</label>
+      <select class="field-input" id="pStatus">
+        <option value="suunnitteilla" ${(!p || p.status==='suunnitteilla')?'selected':''}>Suunnitteilla</option>
+        <option value="käynnissä" ${p?.status==='käynnissä'?'selected':''}>Käynnissä</option>
+        <option value="valmis" ${p?.status==='valmis'?'selected':''}>Valmis</option>
+      </select>
+    </div>
+    <div class="field"><label class="field-label">Aloituspäivä</label>
+      <input class="field-input" id="pStart" type="date" value="${p?.startDate || ''}">
+    </div>
+    <div class="field"><label class="field-label">Lopetuspäivä</label>
+      <input class="field-input" id="pEnd" type="date" value="${p?.endDate || ''}">
+    </div>
+    <div class="field"><label class="field-label">Liittyvät tilat</label>
+      <div style="display:flex; flex-wrap:wrap; gap:8px;">
+        ${spaces.length === 0 ? `<span style="font-size:13px; color:var(--ink-soft);">Ei tiloja lisättynä</span>` :
+          spaces.map(s => `
+            <label style="display:flex; align-items:center; gap:6px; font-size:13px; background:var(--bg-soft); padding:6px 10px; border-radius:8px; cursor:pointer;">
+              <input type="checkbox" class="pSpaceCheck" value="${s.id}" ${selectedIds.includes(s.id) ? 'checked' : ''}>
+              ${escapeHtml(s.name)}
+            </label>`).join('')}
+      </div>
+    </div>`;
+}
+
+async function saveProject(id) {
+  const title = document.getElementById('pTitle').value.trim();
+  if (!title) { toast('Anna projektille nimi'); return; }
+  const spaceIds = Array.from(document.querySelectorAll('.pSpaceCheck:checked')).map(el => el.value);
+  const project = {
+    id: id || uid(),
+    propertyId: state.currentPropertyId,
+    title,
+    status: document.getElementById('pStatus').value,
+    startDate: document.getElementById('pStart').value || null,
+    endDate: document.getElementById('pEnd').value || null,
+    spaceIds,
+    estimatedCosts: id ? undefined : [],
+    actualCosts: id ? undefined : [],
+    materials: id ? undefined : {},
+    created: id ? undefined : Date.now()
+  };
+  if (id) {
+    const old = await dbGet('projects', id);
+    project.created = old.created;
+    project.estimatedCosts = old.estimatedCosts || [];
+    project.actualCosts = old.actualCosts || [];
+    project.materials = old.materials || {};
+  }
+  await dbPut('projects', project);
+  closeModal();
+  toast(id ? 'Projekti päivitetty' : 'Projekti lisätty');
+  if (id) render(); else pushView({ view: 'project', id: project.id });
+}
+
+async function deleteProject(id) {
+  confirmDialog('Poistetaanko projekti pysyvästi? Päiväkirjamerkinnät ja asiakirjat säilyvät mutta menettävät yhteyden projektiin.', async () => {
+    const journals = (await dbAll('journalEntries')).filter(j => j.projectId === id);
+    for (const j of journals) { j.projectId = null; await dbPut('journalEntries', j); }
+    const docs = await dbWhere('documents', 'projectId', id);
+    for (const d of docs) { d.projectId = null; await dbPut('documents', d); }
+    await dbDel('projects', id);
+    popView();
+    toast('Projekti poistettu');
+  }, 'Poista projekti');
+}
+
+function openAddInProjectModal(projectId) {
+  openModal(`
+    <div class="modal-title">Lisää projektiin</div>
+    <div class="btn-row" style="flex-direction:column; gap:8px;">
+      <button class="btn btn-secondary" style="width:100%;" onclick="closeModal(); openAddJournalModal({projectId:'${projectId}'})">${icon('book-open')}Päiväkirjamerkintä</button>
+      <button class="btn btn-secondary" style="width:100%;" onclick="closeModal(); openAddDocModal(null, null, '${projectId}')">${icon('file-text')}Asiakirja</button>
+    </div>
+    <button class="btn btn-ghost" style="width:100%; margin-top:8px;" onclick="closeModal()">Peruuta</button>
+  `);
+}
+
+async function renderProjectDetail(id) {
+  const c = document.getElementById('content');
+  const p = await dbGet('projects', id);
+  if (!p) { popView(); return; }
+  document.getElementById('fab').style.display = 'flex';
+
+  const spaceIds = p.spaceIds || [];
+  const spaces = spaceIds.length > 0 ? (await Promise.all(spaceIds.map(sid => dbGet('spaces', sid)))).filter(Boolean) : [];
+
+  const journals = (await dbAll('journalEntries')).filter(j => j.projectId === id);
+  journals.sort((a, b) => b.date.localeCompare(a.date));
+
+  const docs = (await dbWhere('documents', 'projectId', id)).filter(d => d.category !== 'galleria');
+  const galleryPhotos = await collectGalleryPhotos({ projectId: id });
+
+  const estimatedCosts = p.estimatedCosts || [];
+  const actualCosts = p.actualCosts || [];
+  const estimatedTotal = estimatedCosts.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+  const actualTotal = actualCosts.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+
+  const materials = p.materials || {};
+  const dateRange = [p.startDate ? fmtDate(p.startDate) : null, p.endDate ? fmtDate(p.endDate) : null].filter(Boolean).join(' – ');
+
+  c.innerHTML = `
+    <div class="detail-hero">
+      <div class="detail-hero-top">
+        <div>
+          <h2>${escapeHtml(p.title)}</h2>
+          <div class="sub">${icon('hammer')}<span class="project-status-badge project-status-${p.status || 'suunnitteilla'}">${escapeHtml(statusLabel(p.status))}</span></div>
+        </div>
+      </div>
+      ${dateRange ? `<div style="margin-top: 10px; font-size: 14px;">${escapeHtml(dateRange)}</div>` : ''}
+      ${spaces.length > 0 ? `<div class="project-space-tags" style="margin-top:10px;">${spaces.map(s => `<span class="project-space-tag" style="background:rgba(255,255,255,0.6);">${escapeHtml(s.name)}</span>`).join('')}</div>` : ''}
+    </div>
+
+    <div class="section-title">
+      <span>Kustannukset</span>
+      <span class="action" onclick="pushView({view:'project', id:'${id}'}); openCostsModal('${id}')">${icon('pencil')}Muokkaa</span>
+    </div>
+    <div class="card" style="padding:14px 16px; margin-bottom:16px;" onclick="openCostsModal('${id}')">
+      <div style="display:flex; justify-content:space-between; font-size:14px; margin-bottom:6px;">
+        <span style="color:var(--ink-soft);">Arvioitu</span>
+        <span style="font-weight:600;">${estimatedTotal.toFixed(2)} €</span>
+      </div>
+      <div style="display:flex; justify-content:space-between; font-size:14px;">
+        <span style="color:var(--ink-soft);">Toteutunut</span>
+        <span style="font-weight:600; color:${actualTotal > estimatedTotal && estimatedTotal > 0 ? 'var(--warn)' : 'var(--ink)'};">${actualTotal.toFixed(2)} €</span>
+      </div>
+    </div>
+
+    <div class="section-title">
+      <span>Pintamateriaalit</span>
+      <span class="action" onclick="openMaterialsModal('${id}')">${icon('pencil')}Muokkaa</span>
+    </div>
+    ${spaces.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Lisää ensin tiloja projektiin</div>` :
+      spaces.map(s => {
+        const rows = materials[s.id] || [];
+        return `<div style="margin-bottom:10px;">
+          <div class="material-space-title">${escapeHtml(s.name)}</div>
+          ${rows.length === 0 ? `<div style="color: var(--ink-soft); font-size: 13px;">Ei materiaaleja</div>` :
+            rows.map(r => `<div style="font-size:14px; padding:4px 0; border-bottom:1px solid var(--border-soft);">${escapeHtml(r)}</div>`).join('')}
+        </div>`;
+      }).join('')}
+
+    <div class="section-title">
+      <span>Päiväkirja${journals.length > 0 ? ` (${journals.length})` : ''}</span>
+      <span class="action" onclick="openAddJournalModal({projectId:'${id}'})">${icon('plus')}Lisää</span>
+    </div>
+    ${journals.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei merkintöjä</div>` :
+      journals.slice(0, 3).map(j => renderJournalCard(j, false)).join('') +
+      (journals.length > 3 ? `<div style="text-align: center; padding: 8px;"><span class="action" style="font-size: 14px; color: var(--accent); cursor: pointer;" onclick="pushView({view:'journalList', projectId:'${id}'})">Näytä kaikki ${journals.length}</span></div>` : '')}
+
+    <div class="section-title">
+      <span>Valokuvat${galleryPhotos.length > 0 ? ` (${galleryPhotos.length})` : ''}</span>
+      ${galleryPhotos.length > 0 ? `<span class="action" onclick="pushView({view:'gallery', projectId:'${id}'})">Avaa</span>` : ''}
+    </div>
+    ${renderGalleryPreview(galleryPhotos, '', '', id)}
+
+    <div class="section-title">
+      <span>Asiakirjat${docs.length > 0 ? ` (${docs.length})` : ''}</span>
+      <span class="action" onclick="openAddDocModal(null, null, '${id}')">${icon('plus')}Lisää</span>
+    </div>
+    ${docs.length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei asiakirjoja</div>` :
+      docs.map(d => renderDocCard(d)).join('')}
+
+    <div class="btn-row" style="margin-top: 28px;">
+      <button class="btn btn-ghost" onclick="openEditProjectModal('${id}')">${icon('pencil')}Muokkaa</button>
+      <button class="btn btn-danger" onclick="deleteProject('${id}')">${icon('trash-2')}Poista</button>
+    </div>
+  `;
+}
+
+// --- Kustannukset ---
+function openCostsModal(projectId) {
+  dbGet('projects', projectId).then(p => {
+    state._costsDraft = {
+      estimated: JSON.parse(JSON.stringify(p.estimatedCosts || [])),
+      actual: JSON.parse(JSON.stringify(p.actualCosts || []))
+    };
+    openModal(`
+      <div class="modal-title">Kustannukset</div>
+      <div class="section-title" style="margin-top:0;">Arvioidut</div>
+      <div id="costsEstimatedRows"></div>
+      <button class="btn btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addCostRow('estimated')">${icon('plus')}Lisää rivi</button>
+
+      <div class="section-title">Toteutuneet</div>
+      <div id="costsActualRows"></div>
+      <button class="btn btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addCostRow('actual')">${icon('plus')}Lisää rivi</button>
+
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveCosts('${projectId}')">Tallenna</button>
+      </div>`);
+    renderCostRows('estimated');
+    renderCostRows('actual');
+  });
+}
+
+function renderCostRows(kind) {
+  const rows = state._costsDraft[kind];
+  const el = document.getElementById(kind === 'estimated' ? 'costsEstimatedRows' : 'costsActualRows');
+  el.innerHTML = rows.map((r, i) => `
+    <div class="cost-row">
+      <input type="text" value="${escapeHtml(r.desc || '')}" placeholder="Kuvaus" oninput="state._costsDraft.${kind}[${i}].desc=this.value">
+      <input type="number" step="0.01" value="${r.amount || ''}" placeholder="0.00" oninput="state._costsDraft.${kind}[${i}].amount=this.value">
+      <button class="btn btn-ghost" style="padding:6px;" onclick="removeCostRow('${kind}', ${i})">${icon('x')}</button>
+    </div>`).join('');
+  refreshIcons();
+}
+
+function addCostRow(kind) {
+  state._costsDraft[kind].push({ desc: '', amount: '' });
+  renderCostRows(kind);
+}
+
+function removeCostRow(kind, idx) {
+  state._costsDraft[kind].splice(idx, 1);
+  renderCostRows(kind);
+}
+
+async function saveCosts(projectId) {
+  const p = await dbGet('projects', projectId);
+  p.estimatedCosts = state._costsDraft.estimated.filter(r => r.desc || r.amount);
+  p.actualCosts = state._costsDraft.actual.filter(r => r.desc || r.amount);
+  await dbPut('projects', p);
+  closeModal();
+  toast('Kustannukset tallennettu');
+  render();
+}
+
+// --- Pintamateriaalit ---
+async function openMaterialsModal(projectId) {
+  const p = await dbGet('projects', projectId);
+  const spaceIds = p.spaceIds || [];
+  if (spaceIds.length === 0) { toast('Lisää ensin tiloja projektiin'); return; }
+  const spaces = (await Promise.all(spaceIds.map(sid => dbGet('spaces', sid)))).filter(Boolean);
+  state._materialsDraft = JSON.parse(JSON.stringify(p.materials || {}));
+
+  openModal(`
+    <div class="modal-title">Pintamateriaalit</div>
+    ${spaces.map(s => `
+      <div class="material-space-title">${escapeHtml(s.name)}</div>
+      <div id="materialRows_${s.id}"></div>
+      <button class="btn btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addMaterialRow('${s.id}')">${icon('plus')}Lisää rivi</button>
+    `).join('')}
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveMaterials('${projectId}')">Tallenna</button>
+    </div>`);
+  spaces.forEach(s => renderMaterialRows(s.id));
+}
+
+function renderMaterialRows(spaceId) {
+  if (!state._materialsDraft[spaceId]) state._materialsDraft[spaceId] = [];
+  const rows = state._materialsDraft[spaceId];
+  const el = document.getElementById('materialRows_' + spaceId);
+  el.innerHTML = rows.map((text, i) => `
+    <div class="material-row">
+      <textarea rows="2" placeholder="esim. Lattialaatta Bien Alpstone beige 10x10cm Bauhaus 28,90€/m²" oninput="state._materialsDraft['${spaceId}'][${i}]=this.value">${escapeHtml(text)}</textarea>
+      <button class="btn btn-ghost" style="padding:6px;" onclick="removeMaterialRow('${spaceId}', ${i})">${icon('x')}</button>
+    </div>`).join('');
+  refreshIcons();
+}
+
+function addMaterialRow(spaceId) {
+  if (!state._materialsDraft[spaceId]) state._materialsDraft[spaceId] = [];
+  state._materialsDraft[spaceId].push('');
+  renderMaterialRows(spaceId);
+}
+
+function removeMaterialRow(spaceId, idx) {
+  state._materialsDraft[spaceId].splice(idx, 1);
+  renderMaterialRows(spaceId);
+}
+
+async function saveMaterials(projectId) {
+  const p = await dbGet('projects', projectId);
+  const cleaned = {};
+  for (const [sid, rows] of Object.entries(state._materialsDraft)) {
+    const filtered = rows.filter(r => r && r.trim());
+    if (filtered.length > 0) cleaned[sid] = filtered;
+  }
+  p.materials = cleaned;
+  await dbPut('projects', p);
+  closeModal();
+  toast('Materiaalit tallennettu');
+  render();
 }
 
 // ============================================================
@@ -3225,10 +3680,9 @@ async function renderChangelog() {
   const c = document.getElementById('content');
 
   const roadmap = [
-    { version: '0.9', title: 'Valokuvat ja alanavi', desc: 'Valokuvat-sivu, scrollattava alavalikko — työn alla' },
-    { version: '1.0', title: 'Kulutusseuranta', desc: 'Sähkö- ja vesilukemien seuranta, kulutusgraafit' },
-    { version: '1.1', title: 'Projektit', desc: 'Remontit ja hankkeet kustannusseurantoineen' },
-    { version: '1.2+', title: 'Google Drive -synkronointi', desc: 'Tietojen varmuuskopiointi ja synkronointi pilveen' }
+    { version: '0.10', title: 'Kulutusseuranta', desc: 'Sähkö- ja vesilukemien seuranta, kulutusgraafit — työn alla' },
+    { version: '1.0', title: 'Ensimmäinen vakaa julkaisu', desc: 'Kaikki ydinominaisuudet koossa' },
+    { version: '1.1+', title: 'Google Drive -synkronointi', desc: 'Tietojen varmuuskopiointi ja synkronointi pilveen' }
   ];
 
   c.innerHTML = `
@@ -3515,6 +3969,8 @@ function onFabClick() {
     if (top.view === 'documentsList') return openAddDocModal(null);
     if (top.view === 'devicesList') return openAddDeviceModal(null);
     if (top.view === 'remindersList') return openAddReminderPickerModal();
+    if (top.view === 'projectsList') return openAddProjectModal();
+    if (top.view === 'project') return openAddInProjectModal(top.id);
     if (top.view === 'journalList') {
       return openAddJournalModal({ spaceId: top.spaceId, deviceId: top.deviceId });
     }
@@ -3914,8 +4370,9 @@ async function saveLog(itemId) {
 }
 
 // Asiakirja
-async function openAddDocModal(spaceId, deviceId) {
+async function openAddDocModal(spaceId, deviceId, projectId) {
   state.formDocFile = null;
+  state.docContext = { projectId: projectId || null };
   const [spaces, devices] = await Promise.all([
     dbWhere('spaces', 'propertyId', state.currentPropertyId),
     dbWhere('devices', 'propertyId', state.currentPropertyId)
@@ -3944,9 +4401,9 @@ async function openAddDocModal(spaceId, deviceId) {
         <option>Sopimus</option><option>Käyttöohje</option><option>Muu</option>
       </select>
     </div>
-    <div class="field"><label>Liittyy</label>
+    ${projectId ? '' : `<div class="field"><label>Liittyy</label>
       <select id="docLink">${options.join('')}</select>
-    </div>
+    </div>`}
     <div class="field"><label>Muistiinpanot</label><textarea id="docNotes"></textarea></div>
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
@@ -3974,13 +4431,16 @@ async function saveNewDoc() {
   const title = document.getElementById('docTitle').value.trim();
   if (!title) { toast('Anna otsikko'); return; }
   const fileName = state.formDocFile.name || document.getElementById('docFile').files[0]?.name || 'tiedosto';
-  const linkValue = document.getElementById('docLink').value;
+  const ctx = state.docContext || {};
   let spaceId = null, deviceId = null;
-  if (linkValue.startsWith('space:')) spaceId = linkValue.slice(6);
-  else if (linkValue.startsWith('device:')) deviceId = linkValue.slice(7);
+  if (!ctx.projectId) {
+    const linkValue = document.getElementById('docLink').value;
+    if (linkValue.startsWith('space:')) spaceId = linkValue.slice(6);
+    else if (linkValue.startsWith('device:')) deviceId = linkValue.slice(7);
+  }
   const doc = {
     id: uid(), propertyId: state.currentPropertyId,
-    spaceId, deviceId,
+    spaceId, deviceId, projectId: ctx.projectId || null,
     title, category: document.getElementById('docCategory').value,
     notes: document.getElementById('docNotes').value.trim(),
     fileName, mimeType: state.formDocFile.type, size: state.formDocFile.size,
@@ -4118,9 +4578,9 @@ async function openAddJournalModal(context) {
     <div class="modal-title">Päiväkirjamerkintä</div>
     <div class="modal-subtitle">Vapaamuotoinen merkintä kuvineen</div>
 
-    <div class="field"><label>Liittyy</label>
+    ${context?.projectId ? '' : `<div class="field"><label>Liittyy</label>
       <select id="jLink">${options.join('')}</select>
-    </div>
+    </div>`}
     <div class="field"><label>Päivämäärä</label><input type="date" id="jDate" value="${today()}"></div>
     <div class="field"><label>Otsikko (valinnainen)</label>
       <input type="text" id="jTitle" placeholder="esim. Pumppu jumissa">
@@ -4161,8 +4621,18 @@ function removeJournalPhoto(i) {
 }
 
 async function saveNewJournal() {
-  const linkVal = document.getElementById('jLink').value;
-  if (!linkVal) { toast('Valitse mihin merkintä liittyy'); return; }
+  const ctx = state.journalContext || {};
+  let spaceId = null, deviceId = null;
+
+  if (ctx.projectId) {
+    // Projektikontekstissa ei näytetä tila/laite-valitsinta
+  } else {
+    const linkVal = document.getElementById('jLink').value;
+    if (!linkVal) { toast('Valitse mihin merkintä liittyy'); return; }
+    if (linkVal.startsWith('space:')) spaceId = linkVal.slice(6);
+    else if (linkVal.startsWith('device:')) deviceId = linkVal.slice(7);
+  }
+
   const date = document.getElementById('jDate').value;
   if (!date) { toast('Anna päivämäärä'); return; }
   const text = document.getElementById('jText').value.trim();
@@ -4171,14 +4641,10 @@ async function saveNewJournal() {
     toast('Lisää otsikko, teksti tai kuva'); return;
   }
 
-  let spaceId = null, deviceId = null;
-  if (linkVal.startsWith('space:')) spaceId = linkVal.slice(6);
-  else if (linkVal.startsWith('device:')) deviceId = linkVal.slice(7);
-
   const entry = {
     id: uid(),
     propertyId: state.currentPropertyId,
-    spaceId, deviceId,
+    spaceId, deviceId, projectId: ctx.projectId || null,
     date, title, text,
     photos: state.formPhotos,
     created: Date.now()
