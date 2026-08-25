@@ -1069,10 +1069,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.0';
+const APP_VERSION = '0.10.1';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.1', date: '2026-05-24', changes: [
+    'Korjattu: "Uusi projekti" -lomake näytti [object Promise] tekstiä tyhjien kenttien sijaan (puuttuva await)'
+  ]},
   { version: '0.10.0', date: '2026-05-24', changes: [
     'Projektit-osio: nimi, tila (suunnitteilla/käynnissä/valmis), aloitus- ja lopetuspäivä',
     'Projekti voi liittyä useaan tilaan samanaikaisesti',
@@ -2592,10 +2595,10 @@ function statusLabel(status) {
   }
 }
 
-function openAddProjectModal() {
+async function openAddProjectModal() {
   openModal(`
     <div class="modal-title">Uusi projekti</div>
-    ${projectFormFieldsHtml(null)}
+    ${await projectFormFieldsHtml(null)}
     <div class="btn-row">
       <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
       <button class="btn btn-primary" onclick="saveProject()">Tallenna</button>
