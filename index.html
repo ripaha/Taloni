@@ -838,6 +838,27 @@ body {
   font-size: 13px; font-weight: 600; cursor: pointer;
 }
 .btn-add-row svg { width: 15px; height: 15px; }
+
+/* --- Tehtävät (todo) --- */
+.task-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 4px; border-bottom: 1px solid var(--border-soft);
+}
+.task-row:last-child { border-bottom: none; }
+.task-check {
+  flex-shrink: 0; width: 24px; height: 24px;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  background: var(--bg); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: white; padding: 0;
+}
+.task-check svg { width: 15px; height: 15px; }
+.task-check.done { background: var(--accent); border-color: var(--accent); }
+.task-text {
+  flex: 1; min-width: 0; font-size: 14px; color: var(--ink); cursor: pointer;
+  word-break: break-word;
+}
+.task-text.done { color: var(--ink-soft); text-decoration: line-through; }
 .material-row {
   display: flex; align-items: flex-start; gap: 8px;
   padding: 8px 0; border-bottom: 1px solid var(--border-soft);
@@ -1131,10 +1152,15 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.10';
+const APP_VERSION = '0.10.11';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.11', date: '2026-05-24', changes: [
+    'Projektikortille Muistiinpanot-osio pintamateriaalien alle, samaan tapaan kuin huoltokortilla',
+    'Projektikortille Tehtävät-osio (todo-lista): lisää, muokkaa, poista ja merkitse tehdyksi',
+    'Tehtävälaskuri otsikossa näyttää tekemättömät/kaikki (esim. 2/5)'
+  ]},
   { version: '0.10.10', date: '2026-05-24', changes: [
     'Projektin etusivun pinta-ala-korteissa näkyy nyt sama laskukaava kuin muokkausnäkymässä'
   ]},
@@ -2833,6 +2859,8 @@ async function saveProject(id) {
     actualCosts: id ? undefined : [],
     materials: id ? undefined : {},
     areas: id ? undefined : {},
+    notes: id ? undefined : '',
+    tasks: id ? undefined : [],
     created: id ? undefined : Date.now()
   };
   if (id) {
@@ -2842,6 +2870,8 @@ async function saveProject(id) {
     project.actualCosts = old.actualCosts || [];
     project.materials = old.materials || {};
     project.areas = old.areas || {};
+    project.notes = old.notes || '';
+    project.tasks = old.tasks || [];
   }
   await dbPut('projects', project);
   closeModal();
@@ -2963,6 +2993,20 @@ async function renderProjectDetail(id) {
             rows.map(r => `<div style="font-size:14px; padding:4px 0; border-bottom:1px solid var(--border-soft);">${escapeHtml(r)}</div>`).join('')}
         </div>`;
       }).join('')}
+
+    <div class="section-title">
+      <span>Muistiinpanot</span>
+      <span class="action" onclick="openProjectNotesModal('${id}')">${icon('pencil')}Muokkaa</span>
+    </div>
+    ${p.notes ? `<div class="card" style="cursor:default; margin-bottom: 16px; white-space:pre-wrap;">${escapeHtml(p.notes)}</div>` :
+      `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei muistiinpanoja</div>`}
+
+    <div class="section-title">
+      <span>Tehtävät${(p.tasks || []).length > 0 ? ` (${(p.tasks || []).filter(t => !t.done).length}/${(p.tasks || []).length})` : ''}</span>
+      <span class="action" onclick="openAddTaskModal('${id}')">${icon('plus')}Lisää</span>
+    </div>
+    ${(p.tasks || []).length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei tehtäviä</div>` :
+      (p.tasks || []).map(t => renderTaskRow(id, t)).join('')}
 
     <div class="section-title">
       <span>Päiväkirja${journals.length > 0 ? ` (${journals.length})` : ''}</span>
@@ -3262,6 +3306,101 @@ async function saveSpaceMaterials(spaceId) {
   await dbPut('spaces', space);
   closeModal();
   toast('Materiaalit tallennettu');
+  render();
+}
+
+// --- Projektin muistiinpanot ---
+async function openProjectNotesModal(projectId) {
+  const p = await dbGet('projects', projectId);
+  openModal(`
+    <div class="modal-title">Muistiinpanot</div>
+    <div class="field"><textarea id="pNotesInput" rows="6" placeholder="Vapaamuotoinen muistiinpano">${escapeHtml(p.notes || '')}</textarea></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveProjectNotes('${projectId}')">Tallenna</button>
+    </div>`);
+}
+
+async function saveProjectNotes(projectId) {
+  const p = await dbGet('projects', projectId);
+  p.notes = document.getElementById('pNotesInput').value.trim();
+  await dbPut('projects', p);
+  closeModal();
+  toast('Muistiinpanot tallennettu');
+  render();
+}
+
+// --- Projektin tehtävät (todo) ---
+function renderTaskRow(projectId, task) {
+  return `<div class="task-row">
+    <button class="task-check ${task.done ? 'done' : ''}" onclick="toggleTask('${projectId}', '${task.id}')">
+      ${task.done ? icon('check') : ''}
+    </button>
+    <span class="task-text ${task.done ? 'done' : ''}" onclick="openEditTaskModal('${projectId}', '${task.id}')">${escapeHtml(task.text)}</span>
+    <button class="row-remove" onclick="deleteTask('${projectId}', '${task.id}')">${icon('x')}</button>
+  </div>`;
+}
+
+function openAddTaskModal(projectId) {
+  openModal(`
+    <div class="modal-title">Uusi tehtävä</div>
+    <div class="field"><input class="field-input" id="taskTextInput" placeholder="esim. Tilaa laatat" onkeydown="if(event.key==='Enter') saveNewTask('${projectId}')"></div>
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveNewTask('${projectId}')">Lisää</button>
+    </div>`);
+  setTimeout(() => document.getElementById('taskTextInput')?.focus(), 100);
+}
+
+async function saveNewTask(projectId) {
+  const text = document.getElementById('taskTextInput').value.trim();
+  if (!text) { toast('Kirjoita tehtävä'); return; }
+  const p = await dbGet('projects', projectId);
+  p.tasks = p.tasks || [];
+  p.tasks.push({ id: uid(), text, done: false, created: Date.now() });
+  await dbPut('projects', p);
+  closeModal();
+  render();
+}
+
+function openEditTaskModal(projectId, taskId) {
+  dbGet('projects', projectId).then(p => {
+    const task = (p.tasks || []).find(t => t.id === taskId);
+    if (!task) return;
+    openModal(`
+      <div class="modal-title">Muokkaa tehtävää</div>
+      <div class="field"><input class="field-input" id="taskTextInput" value="${escapeHtml(task.text)}" onkeydown="if(event.key==='Enter') saveEditedTask('${projectId}','${taskId}')"></div>
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+        <button class="btn btn-primary" onclick="saveEditedTask('${projectId}','${taskId}')">Tallenna</button>
+      </div>`);
+    setTimeout(() => document.getElementById('taskTextInput')?.focus(), 100);
+  });
+}
+
+async function saveEditedTask(projectId, taskId) {
+  const text = document.getElementById('taskTextInput').value.trim();
+  if (!text) { toast('Kirjoita tehtävä'); return; }
+  const p = await dbGet('projects', projectId);
+  const task = (p.tasks || []).find(t => t.id === taskId);
+  if (task) task.text = text;
+  await dbPut('projects', p);
+  closeModal();
+  render();
+}
+
+async function toggleTask(projectId, taskId) {
+  const p = await dbGet('projects', projectId);
+  const task = (p.tasks || []).find(t => t.id === taskId);
+  if (task) task.done = !task.done;
+  await dbPut('projects', p);
+  render();
+}
+
+async function deleteTask(projectId, taskId) {
+  const p = await dbGet('projects', projectId);
+  p.tasks = (p.tasks || []).filter(t => t.id !== taskId);
+  await dbPut('projects', p);
   render();
 }
 
