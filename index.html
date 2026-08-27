@@ -1152,10 +1152,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.11';
+const APP_VERSION = '0.10.12';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.12', date: '2026-05-24', changes: [
+    'Tehtävät: keskeneräiset näkyvät ensin, valmiit siirtyvät automaattisesti listan loppuun'
+  ]},
   { version: '0.10.11', date: '2026-05-24', changes: [
     'Projektikortille Muistiinpanot-osio pintamateriaalien alle, samaan tapaan kuin huoltokortilla',
     'Projektikortille Tehtävät-osio (todo-lista): lisää, muokkaa, poista ja merkitse tehdyksi',
@@ -3006,7 +3009,7 @@ async function renderProjectDetail(id) {
       <span class="action" onclick="openAddTaskModal('${id}')">${icon('plus')}Lisää</span>
     </div>
     ${(p.tasks || []).length === 0 ? `<div style="color: var(--ink-soft); font-size: 14px; padding: 4px 0 8px;">Ei tehtäviä</div>` :
-      (p.tasks || []).map(t => renderTaskRow(id, t)).join('')}
+      [...(p.tasks || [])].sort((a, b) => (a.done === b.done) ? 0 : (a.done ? 1 : -1)).map(t => renderTaskRow(id, t)).join('')}
 
     <div class="section-title">
       <span>Päiväkirja${journals.length > 0 ? ` (${journals.length})` : ''}</span>
