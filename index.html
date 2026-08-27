@@ -405,7 +405,16 @@ body {
   padding-bottom: calc(28px + env(safe-area-inset-bottom));
   max-height: 92vh; overflow-y: auto;
   animation: slideUp 0.25s cubic-bezier(0.32, 0.72, 0, 1);
+  position: relative;
 }
+.modal-close-x {
+  position: absolute; top: 14px; right: 16px;
+  width: 30px; height: 30px; border-radius: 50%;
+  background: var(--bg-soft); border: none; color: var(--ink-soft);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; z-index: 1;
+}
+.modal-close-x svg { width: 16px; height: 16px; }
 @keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
 
 .modal-handle {
@@ -1152,10 +1161,14 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.12';
+const APP_VERSION = '0.10.13';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.13', date: '2026-05-24', changes: [
+    'Kaikkiin ponnahdusikkunoihin lisätty sulkunappi (X) oikeaan yläkulmaan',
+    'Toimii samalla tavalla kuin alareunan Peruuta-nappi, keskitetysti kaikissa modaaleissa'
+  ]},
   { version: '0.10.12', date: '2026-05-24', changes: [
     'Tehtävät: keskeneräiset näkyvät ensin, valmiit siirtyvät automaattisesti listan loppuun'
   ]},
@@ -4494,7 +4507,7 @@ function openAddReminderPickerModal() {
 // Modaalit
 // ============================================================
 function openModal(html) {
-  document.getElementById('modalSheet').innerHTML = `<div class="modal-handle"></div>${html}`;
+  document.getElementById('modalSheet').innerHTML = `<div class="modal-handle"></div><button class="modal-close-x" onclick="closeModal()">${icon('x')}</button>${html}`;
   document.getElementById('modal').classList.add('active');
   refreshIcons();
 }
