@@ -1162,10 +1162,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.16';
+const APP_VERSION = '0.10.17';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.17', date: '2026-08-29', changes: [
+    'Google-kirjautumiskokeilu: tulos näytetään nyt alert-ikkunassa (ei häviävällä toast-viestillä) ja virheet lokitetaan konsoliin, jotta testaus onnistuu luotettavammin'
+  ]},
   { version: '0.10.16', date: '2026-08-29', changes: [
     'Lisätty asetuksiin kokeilunappi Google-kirjautumiselle (Google Drive -synkronoinnin ensimmäinen testi) — ei vielä tee synkronointia'
   ]},
@@ -5546,18 +5549,26 @@ function testGoogleLogin() {
       client_id: GOOGLE_CLIENT_ID,
       scope: GOOGLE_DRIVE_SCOPE,
       callback: async (response) => {
+        console.log('[GoogleTest] token-vastaus:', response);
         if (response.error) {
-          toast('Kirjautuminen epäonnistui: ' + response.error);
+          alert('Kirjautuminen epäonnistui: ' + response.error);
           return;
         }
         try {
           const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
             headers: { Authorization: 'Bearer ' + response.access_token }
           });
-          const data = await res.json();
-          toast('Kirjauduttu: ' + (data.user?.emailAddress || 'tuntematon tili'));
+          const text = await res.text();
+          console.log('[GoogleTest] Drive-vastaus:', res.status, text);
+          if (!res.ok) {
+            alert('Drive-kutsu epäonnistui (HTTP ' + res.status + '):\n' + text);
+            return;
+          }
+          const data = JSON.parse(text);
+          alert('Kirjauduttu onnistuneesti!\nTili: ' + (data.user?.emailAddress || 'tuntematon tili'));
         } catch (err) {
-          toast('Drive-kutsu epäonnistui: ' + err.message);
+          console.error('[GoogleTest] virhe:', err);
+          alert('Drive-kutsu epäonnistui: ' + err.message);
         }
       }
     });
