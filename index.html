@@ -1166,10 +1166,14 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.24';
+const APP_VERSION = '0.10.25';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.25', date: '2026-08-29', changes: [
+    'Korjattu: Google-kirjautumisikkuna vilahti joka kerta kun sovellus avattiin, koska Drive-tarkistus tehtiin joka käynnistyksellä',
+    'Drive-tarkistus tehdään nyt korkeintaan kerran 30 minuutissa laitetta kohden'
+  ]},
   { version: '0.10.24', date: '2026-08-29', changes: [
     'Valokuvan/asiakirjan tietosivulla näkyy nyt myös kellonaika päivämäärän perässä',
     'Korjattu päivitysten asennus: kun sovellus lataa uuden version taustalla ja käynnistää sivun uudelleen, ei enää tarvitse painaa "Jatka"-nappia toiseen kertaan',
@@ -5764,11 +5768,24 @@ async function restoreFromGoogleDrive(fileId, token) {
   }
 }
 
+// Kuinka usein käynnistyksen yhteydessä tehtävä Drive-tarkistus saa korkeintaan
+// toistua. Googlen "hiljainen" tunnuksenhaku vilauttaa silti lyhyesti oikean
+// popup-ikkunan (ei vain näkymätöntä taustapyyntöä), joten sitä ei kannata tehdä
+// joka ikinen kerta kun sovellus avataan.
+const DRIVE_CHECK_MIN_INTERVAL_MS = 30 * 60 * 1000;
+
 // Sovelluksen käynnistyessä: tarkistaa hiljaa (ei koskaan lupaikkunaa) onko Drivessä
 // uudempi varmuuskopio kuin mitä tällä laitteella tiedetään olevan, ja jos on,
 // kysyy käyttäjältä haetaanko se. Epäonnistuu aina hiljaa jos Drive-yhteyttä ei ole
 // (esim. ei koskaan kirjauduttu tällä laitteella) — ei häiritse normaalia käyttöä.
 async function checkDriveForNewerBackup() {
+  const lastCheck = (await dbGet('settings', 'googleDriveLastCheckTime'))?.value || 0;
+  if (Date.now() - lastCheck < DRIVE_CHECK_MIN_INTERVAL_MS) {
+    console.log('[DriveCheck] tarkistettu äskettäin, ohitetaan tällä kertaa');
+    return;
+  }
+  await dbPut('settings', { key: 'googleDriveLastCheckTime', value: Date.now() });
+
   let token;
   try {
     token = await Promise.race([
