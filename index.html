@@ -14,6 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
 <style>
 :root {
   /* Light, airy palette */
@@ -1161,10 +1162,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.15';
+const APP_VERSION = '0.10.16';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.16', date: '2026-08-29', changes: [
+    'Lisätty asetuksiin kokeilunappi Google-kirjautumiselle (Google Drive -synkronoinnin ensimmäinen testi) — ei vielä tee synkronointia'
+  ]},
   { version: '0.10.15', date: '2026-05-24', changes: [
     'Korjattu Takaisin-painike: alanavin kautta avatut sivut (Valokuvat, Muistutukset, Projektit, Laitteet, Asiakirjat, Yhteystiedot, Huoltokohteet) veivät virheellisesti Asetukset-sivulle',
     'Nyt kaikki nämä palaavat oikein etusivulle, Tilat/Päiväkirja-alasivut palaavat omaan listaansa kuten ennenkin'
@@ -5415,6 +5419,10 @@ async function openSettingsModal() {
     <input type="file" id="importFile" accept=".json" style="display:none" onchange="importData(event)">
     <p style="font-size: 13px; color: var(--ink-soft); margin-top: 8px; line-height: 1.5;">Voit tallentaa varmuuskopion Google Driveen manuaalisesti.</p>
 
+    <div class="section-title">Google Drive (kokeilu)</div>
+    <button class="btn btn-secondary" onclick="testGoogleLogin()" style="margin-bottom: 10px;">${icon('cloud')}Testaa Google-kirjautuminen</button>
+    <p style="font-size: 13px; color: var(--ink-soft); margin-top: -4px; margin-bottom: 8px; line-height: 1.5;">Kokeilu — ei vielä tee mitään synkronointia, näyttää vain onnistuiko kirjautuminen.</p>
+
     <div class="section-title">Vaaravyöhyke</div>
     <button class="btn btn-danger" onclick="resetData()">${icon('trash-2')}Tyhjennä kaikki tiedot</button>
 
@@ -5517,6 +5525,44 @@ async function resetData() {
     toast('Tyhjennetty');
     render();
   }, 'Tyhjennä kaikki tiedot');
+}
+
+// ============================================================
+// Google Drive -kirjautuminen (kokeilu)
+// ============================================================
+// Vain kirjautumisen testaus — ei vielä varsinaista synkronointia.
+// drive.file-oikeus näkee vain tämän sovelluksen itse luomat tiedostot.
+const GOOGLE_CLIENT_ID = '694297897142-vdl5d79nsmde6dvhaahrg9a23hcvk6ll.apps.googleusercontent.com';
+const GOOGLE_DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let googleTokenClient = null;
+
+function testGoogleLogin() {
+  if (!window.google || !google.accounts || !google.accounts.oauth2) {
+    toast('Google-kirjasto ei latautunut (tarkista verkkoyhteys)');
+    return;
+  }
+  if (!googleTokenClient) {
+    googleTokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID,
+      scope: GOOGLE_DRIVE_SCOPE,
+      callback: async (response) => {
+        if (response.error) {
+          toast('Kirjautuminen epäonnistui: ' + response.error);
+          return;
+        }
+        try {
+          const res = await fetch('https://www.googleapis.com/drive/v3/about?fields=user', {
+            headers: { Authorization: 'Bearer ' + response.access_token }
+          });
+          const data = await res.json();
+          toast('Kirjauduttu: ' + (data.user?.emailAddress || 'tuntematon tili'));
+        } catch (err) {
+          toast('Drive-kutsu epäonnistui: ' + err.message);
+        }
+      }
+    });
+  }
+  googleTokenClient.requestAccessToken({ prompt: 'consent' });
 }
 
 // ============================================================
