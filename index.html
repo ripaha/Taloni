@@ -1166,10 +1166,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.22';
+const APP_VERSION = '0.10.23';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.23', date: '2026-08-29', changes: [
+    'Korjattu: valokuvan/asiakirjan tietosivulla näkyi "Invalid Date" päivämäärän sijaan (mm. projektin valokuvat)'
+  ]},
   { version: '0.10.22', date: '2026-08-29', changes: [
     'Valokuvien tallennuslaatu nostettu (max. leveys 1600px → 2400px, JPEG-laatu 0.82 → 0.88) — terävämmät kuvat, hieman suurempi tiedostokoko',
     'Valokuvat: lightboxiin latausnappi (⬇), jolla kuvan voi tallentaa laitteelle',
@@ -4241,7 +4244,7 @@ async function renderDocumentDetail(id) {
 
   c.innerHTML = `
     <h1 class="page-title">${escapeHtml(d.title)}</h1>
-    <p class="page-subtitle">${escapeHtml(d.category)} · ${fmtSize(d.size)} · ${fmtDate(new Date(d.created).toISOString())}</p>
+    <p class="page-subtitle">${escapeHtml(d.category)} · ${fmtSize(d.size)} · ${d.created ? new Date(d.created).toLocaleDateString('fi-FI', { day: 'numeric', month: 'short', year: 'numeric' }) : '–'}</p>
     ${preview}
     ${d.notes ? `<div class="card" style="cursor:default; margin-bottom: 16px;"><div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin-bottom: 6px; font-weight: 600;">Muistiinpanot</div><div>${escapeHtml(d.notes)}</div></div>` : ''}
     <button class="btn btn-primary" onclick="openDoc('${id}')" style="margin-bottom: 10px;">${icon('external-link')}Avaa tiedosto</button>
