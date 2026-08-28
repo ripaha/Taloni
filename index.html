@@ -1161,10 +1161,14 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.14';
+const APP_VERSION = '0.10.15';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.15', date: '2026-05-24', changes: [
+    'Korjattu Takaisin-painike: alanavin kautta avatut sivut (Valokuvat, Muistutukset, Projektit, Laitteet, Asiakirjat, Yhteystiedot, Huoltokohteet) veivät virheellisesti Asetukset-sivulle',
+    'Nyt kaikki nämä palaavat oikein etusivulle, Tilat/Päiväkirja-alasivut palaavat omaan listaansa kuten ennenkin'
+  ]},
   { version: '0.10.14', date: '2026-05-24', changes: [
     'Etusivu: Projektit-osio siirretty ensimmäiseksi',
     'Etusivu: näkyy myös suunnitteilla-tilassa olevat projektit, käynnissä-tila listattu ensin',
@@ -1790,10 +1794,21 @@ async function renderBackNav() {
 }
 
 function goBack() {
-  if (state.stack.length > 0) {
+  if (state.stack.length > 1) {
+    // Useampi taso pinossa — palataan yksi askel taaksepäin
     popView();
+  } else if (state.stack.length === 1) {
+    if (state.currentTab === 'more') {
+      // 'more'-tabin kautta avatut sivut (Valokuvat, Muistutukset, Projektit jne.)
+      // palaavat aina etusivulle — currentTab jäisi muuten roikkumaan Asetukset-sivulle
+      state.stack = [];
+      switchTab('home');
+    } else {
+      // Tilat/Päiväkirja/Etusivu-tabin alanäkymät palaavat tabin omaan päänäkymään
+      popView();
+    }
   } else {
-    // Päätason sivuilla mennään etusivulle
+    // Ollaan jo tabin päänäkymässä — palataan etusivulle
     switchTab('home');
   }
 }
