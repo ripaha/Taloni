@@ -1162,10 +1162,15 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.20';
+const APP_VERSION = '0.10.21';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.21', date: '2026-08-29', changes: [
+    'Sovellus tarkistaa nyt käynnistyessään hiljaa (ilman kirjautumisikkunaa) onko Google Drivessä uudempi varmuuskopio kuin tällä laitteella — jos on, kysyy haetaanko se käyttöön',
+    'Tarkoitettu käyttöön yhdellä laitteella kerrallaan (esim. välillä puhelin, välillä tietokone) — ei suojaa jos molempia muokataan samaan aikaan',
+    'Jos Drive-yhteyttä ei ole (ei aiemmin kirjauduttu tällä laitteella), tarkistus ohitetaan huomaamattomasti eikä häiritse käyttöä'
+  ]},
   { version: '0.10.20', date: '2026-08-29', changes: [
     'Korjattu: "Viimeksi varmuuskopioitu Driveen" -teksti ei päivittynyt heti napin painalluksen jälkeen, vaan vasta kun asetukset avattiin uudestaan'
   ]},
@@ -5511,33 +5516,38 @@ async function exportData() {
   toast('Vienti valmis');
 }
 
+// Korvaa kaikki paikalliset tiedot varmuuskopiodatalla (tiedostosta tai Drivestä).
+async function applyBackupData(data) {
+  for (const store of STORES) await dbClear(store);
+  for (const store of STORES) {
+    for (const it of (data[store] || [])) {
+      if (typeof it.blob === 'string') it.blob = base64ToBlob(it.blob);
+      if (Array.isArray(it.photos)) it.photos = it.photos.map(p => typeof p === 'string' ? base64ToBlob(p) : p);
+      await dbPut(store, it);
+    }
+  }
+  const taxonomiesAfter = await dbAll('taxonomies');
+  if (taxonomiesAfter.length === 0) {
+    for (const [type, items] of Object.entries(DEFAULT_TAXONOMIES)) {
+      for (let i = 0; i < items.length; i++) {
+        await dbPut('taxonomies', { id: uid(), type, name: items[i].name, icon: items[i].icon, order: i, created: Date.now() });
+      }
+    }
+  }
+  await refreshTaxonomyCache();
+  const ls = await dbGet('settings', 'lastProperty');
+  if (ls) state.currentPropertyId = ls.value;
+}
+
 async function importData(e) {
   const file = e.target.files[0];
   if (!file) return;
   confirmDialog('Korvaa kaikki nykyiset tiedot tuodulla varmuuskopiolla? Tätä ei voi perua.', async () => {
     const data = JSON.parse(await file.text());
-    for (const store of STORES) await dbClear(store);
-    for (const store of STORES) {
-      for (const it of (data[store] || [])) {
-        if (typeof it.blob === 'string') it.blob = base64ToBlob(it.blob);
-        if (Array.isArray(it.photos)) it.photos = it.photos.map(p => typeof p === 'string' ? base64ToBlob(p) : p);
-        await dbPut(store, it);
-      }
-    }
-    const taxonomiesAfter = await dbAll('taxonomies');
-    if (taxonomiesAfter.length === 0) {
-      for (const [type, items] of Object.entries(DEFAULT_TAXONOMIES)) {
-        for (let i = 0; i < items.length; i++) {
-          await dbPut('taxonomies', { id: uid(), type, name: items[i].name, icon: items[i].icon, order: i, created: Date.now() });
-        }
-      }
-    }
-    await refreshTaxonomyCache();
+    await applyBackupData(data);
     toast('Tuotu onnistuneesti');
     e.target.value = '';
     closeModal();
-    const ls = await dbGet('settings', 'lastProperty');
-    if (ls) state.currentPropertyId = ls.value;
     render();
   }, 'Tuo varmuuskopio', 'Tuo');
   e.target.value = '';
@@ -5597,6 +5607,31 @@ function getGoogleAccessToken() {
     };
     // Jos meillä on jo aiemmin saatu tunnus, yritetään ensin hiljaa ilman lupaikkunaa
     googleTokenClient.requestAccessToken({ prompt: googleAccessToken ? '' : 'consent' });
+  });
+}
+
+// Yrittää saada Drive-tunnuksen NÄYTTÄMÄTTÄ koskaan lupaikkunaa — käytetään taustalla
+// sovelluksen käynnistyessä. Jos käyttäjä ei ole aiemmin hyväksynyt oikeutta tässä
+// selaimessa, tämä epäonnistuu hiljaisesti eikä mitään näytetä käyttäjälle.
+function getGoogleAccessTokenSilent() {
+  return new Promise((resolve, reject) => {
+    if (!window.google || !google.accounts || !google.accounts.oauth2) {
+      reject(new Error('Google-kirjasto ei latautunut'));
+      return;
+    }
+    if (!googleTokenClient) {
+      googleTokenClient = google.accounts.oauth2.initTokenClient({
+        client_id: GOOGLE_CLIENT_ID,
+        scope: GOOGLE_DRIVE_SCOPE,
+        callback: () => {}
+      });
+    }
+    googleTokenClient.callback = (response) => {
+      if (response.error) { reject(new Error(response.error)); return; }
+      googleAccessToken = response.access_token;
+      resolve(googleAccessToken);
+    };
+    googleTokenClient.requestAccessToken({ prompt: '' });
   });
 }
 
@@ -5668,6 +5703,68 @@ async function backupToGoogleDrive() {
   } catch (err) {
     console.error('[DriveBackup] virhe:', err);
     alert('Varmuuskopiointi Driveen epäonnistui: ' + err.message);
+  }
+}
+
+// Hakee varmuuskopiotiedoston sisällön Drivesta ja korvaa paikalliset tiedot sillä.
+async function restoreFromGoogleDrive(fileId, token) {
+  toast('Haetaan Drivestä…');
+  try {
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data = await res.json();
+    await applyBackupData(data);
+    await dbPut('settings', { key: 'googleDriveBackupTime', value: Date.now() });
+    toast('Tiedot haettu Drivestä');
+    render();
+  } catch (err) {
+    console.error('[DriveRestore] virhe:', err);
+    alert('Tietojen haku Drivestä epäonnistui: ' + err.message);
+  }
+}
+
+// Sovelluksen käynnistyessä: tarkistaa hiljaa (ei koskaan lupaikkunaa) onko Drivessä
+// uudempi varmuuskopio kuin mitä tällä laitteella tiedetään olevan, ja jos on,
+// kysyy käyttäjältä haetaanko se. Epäonnistuu aina hiljaa jos Drive-yhteyttä ei ole
+// (esim. ei koskaan kirjauduttu tällä laitteella) — ei häiritse normaalia käyttöä.
+async function checkDriveForNewerBackup() {
+  let token;
+  try {
+    token = await Promise.race([
+      getGoogleAccessTokenSilent(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 4000))
+    ]);
+  } catch (err) {
+    console.log('[DriveCheck] ei hiljaista Drive-yhteyttä, ohitetaan:', err.message);
+    return;
+  }
+
+  try {
+    const fileId = await findDriveBackupFileId(token);
+    if (!fileId) return;
+
+    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime`, {
+      headers: { Authorization: 'Bearer ' + token }
+    });
+    if (!res.ok) return;
+    const info = await res.json();
+    const driveTime = new Date(info.modifiedTime).getTime();
+    const localTime = (await dbGet('settings', 'googleDriveBackupTime'))?.value || 0;
+
+    // Pieni puskuri (5s) kellojen pyöristyserojen varalta.
+    if (driveTime > localTime + 5000) {
+      confirmDialog(
+        `Google Drivessä on uudempi varmuuskopio (${new Date(driveTime).toLocaleString('fi-FI')}) kuin tällä laitteella tiedossa ` +
+        `(${localTime ? new Date(localTime).toLocaleString('fi-FI') : 'ei koskaan'}). Haetaanko se käyttöön? Tämä korvaa laitteen nykyiset tiedot.`,
+        () => restoreFromGoogleDrive(fileId, token),
+        'Uudempi varmuuskopio löytyi',
+        'Hae Drivestä'
+      );
+    }
+  } catch (err) {
+    console.log('[DriveCheck] tarkistus epäonnistui, ohitetaan:', err.message);
   }
 }
 
@@ -5870,6 +5967,8 @@ async function bootApp() {
       document.documentElement.style.background = '';
       document.querySelector('meta[name="theme-color"]').content = '#ffffff';
       setTimeout(() => { splash.style.display = 'none'; }, 500);
+      // Taustalla, sovelluksen jo näkyessä: tarkista hiljaa onko Drivessä uudempaa dataa.
+      checkDriveForNewerBackup();
     };
     // Lisätään nappi ennen SVG-kuvitusta
     const art = document.querySelector('.splash-bottom-art');
