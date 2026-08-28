@@ -1162,10 +1162,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.19';
+const APP_VERSION = '0.10.20';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.20', date: '2026-08-29', changes: [
+    'Korjattu: "Viimeksi varmuuskopioitu Driveen" -teksti ei päivittynyt heti napin painalluksen jälkeen, vaan vasta kun asetukset avattiin uudestaan'
+  ]},
   { version: '0.10.19', date: '2026-08-29', changes: [
     'Google Drive -varmuuskopiointi: asetuksissa "Varmuuskopioi Driveen nyt" -nappi tallentaa saman datan kuin JSON-vienti suoraan Google Driveen (drive.file-oikeus, näkee vain sovelluksen oman tiedoston)',
     'Tiedosto ylikirjoitetaan aina samana ("taloni-varmuuskopio.json") — ei kerää Driveen erillistä tiedostoa joka varmuuskopiolle',
@@ -5418,9 +5421,7 @@ async function openSettingsModal() {
   const est = navigator.storage && navigator.storage.estimate ? await navigator.storage.estimate() : null;
   const sizeText = est ? `${(est.usage/1048576).toFixed(1)} MB / ${(est.quota/1048576).toFixed(0)} MB` : '–';
   const driveBackupTime = await dbGet('settings', 'googleDriveBackupTime');
-  const driveBackupText = driveBackupTime?.value
-    ? 'Viimeksi ' + new Date(driveBackupTime.value).toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'short' })
-    : 'Ei vielä varmuuskopioitu';
+  const driveBackupText = formatDriveBackupText(driveBackupTime?.value);
   openModal(`
     <div class="modal-title">Asetukset</div>
 
@@ -5448,7 +5449,7 @@ async function openSettingsModal() {
 
     <div class="section-title">Google Drive -varmuuskopio</div>
     <button class="btn btn-secondary" onclick="backupToGoogleDrive()" style="margin-bottom: 10px;">${icon('cloud-upload')}Varmuuskopioi Driveen nyt</button>
-    <p style="font-size: 13px; color: var(--ink-soft); margin-top: -4px; margin-bottom: 8px; line-height: 1.5;">${escapeHtml(driveBackupText)} — tallentaa tiedoston "${DRIVE_BACKUP_FILENAME}" omaan Google Driveesi.</p>
+    <p id="driveBackupStatus" style="font-size: 13px; color: var(--ink-soft); margin-top: -4px; margin-bottom: 8px; line-height: 1.5;">${escapeHtml(driveBackupText)} — tallentaa tiedoston "${DRIVE_BACKUP_FILENAME}" omaan Google Driveesi.</p>
 
     <div class="section-title">Vaaravyöhyke</div>
     <button class="btn btn-danger" onclick="resetData()">${icon('trash-2')}Tyhjennä kaikki tiedot</button>
@@ -5570,6 +5571,12 @@ const DRIVE_BACKUP_FILENAME = 'taloni-varmuuskopio.json';
 let googleTokenClient = null;
 let googleAccessToken = null;
 
+function formatDriveBackupText(timeMs) {
+  return timeMs
+    ? 'Viimeksi ' + new Date(timeMs).toLocaleString('fi-FI', { dateStyle: 'short', timeStyle: 'short' })
+    : 'Ei vielä varmuuskopioitu';
+}
+
 function getGoogleAccessToken() {
   return new Promise((resolve, reject) => {
     if (!window.google || !google.accounts || !google.accounts.oauth2) {
@@ -5652,8 +5659,11 @@ async function backupToGoogleDrive() {
     if (!res.ok) throw new Error('HTTP ' + res.status + ': ' + text);
 
     const result = JSON.parse(text);
+    const backupTime = Date.now();
     await dbPut('settings', { key: 'googleDriveBackupFileId', value: result.id });
-    await dbPut('settings', { key: 'googleDriveBackupTime', value: Date.now() });
+    await dbPut('settings', { key: 'googleDriveBackupTime', value: backupTime });
+    const statusEl = document.getElementById('driveBackupStatus');
+    if (statusEl) statusEl.textContent = formatDriveBackupText(backupTime) + ` — tallentaa tiedoston "${DRIVE_BACKUP_FILENAME}" omaan Google Driveesi.`;
     toast('Varmuuskopioitu Driveen ' + new Date().toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' }));
   } catch (err) {
     console.error('[DriveBackup] virhe:', err);
