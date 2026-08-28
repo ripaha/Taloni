@@ -1161,10 +1161,16 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.13';
+const APP_VERSION = '0.10.14';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.14', date: '2026-05-24', changes: [
+    'Etusivu: Projektit-osio siirretty ensimmäiseksi',
+    'Etusivu: näkyy myös suunnitteilla-tilassa olevat projektit, käynnissä-tila listattu ensin',
+    'Projektikortilla tila-badge (Suunnitteilla/Käynnissä) päivämäärän sijaan',
+    'Otsikko "Käynnissä" muutettu "Projektit"'
+  ]},
   { version: '0.10.13', date: '2026-05-24', changes: [
     'Kaikkiin ponnahdusikkunoihin lisätty sulkunappi (X) oikeaan yläkulmaan',
     'Toimii samalla tavalla kuin alareunan Peruuta-nappi, keskitetysti kaikissa modaaleissa'
@@ -1945,7 +1951,9 @@ async function renderHome() {
 
   const overdue = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d < 0; });
   const soon = items.filter(i => { const d = daysUntil(i.nextDate); return d !== null && d >= 0 && d <= state.upcomingDays; });
-  const projects = (await dbWhere('projects', 'propertyId', state.currentPropertyId)).filter(p => p.status === 'käynnissä');
+  const projects = (await dbWhere('projects', 'propertyId', state.currentPropertyId))
+    .filter(p => p.status === 'käynnissä' || p.status === 'suunnitteilla')
+    .sort((a, b) => (a.status === 'käynnissä' ? 0 : 1) - (b.status === 'käynnissä' ? 0 : 1));
 
   // Haetaan lähestyvät muistutukset
   const allReminders = await dbWhere('reminders', 'propertyId', state.currentPropertyId);
@@ -1991,6 +1999,21 @@ async function renderHome() {
     <h1 class="page-title">${escapeHtml(property.name)}</h1>
     <p class="page-subtitle">${escapeHtml(property.address || property.type || '')}</p>
 
+    ${projects.length > 0 ? `
+      <div class="section-title">Projektit</div>
+      ${projects.map(p => `
+        <div class="card" onclick="pushView({view:'project', id:'${p.id}'})">
+          <div class="card-row">
+            <div class="card-icon warm">${icon('hammer')}</div>
+            <div class="card-main">
+              <div class="card-title">${escapeHtml(p.title)}</div>
+              <div class="card-meta"><span class="project-status-badge project-status-${p.status}">${escapeHtml(statusLabel(p.status))}</span></div>
+            </div>
+          </div>
+        </div>
+      `).join('')}
+    ` : ''}
+
     ${remindersHtml}
 
     ${(overdue.length + soon.length) > 0 ? `
@@ -2016,21 +2039,6 @@ async function renderHome() {
         <div class="empty-text">Lisää ensimmäinen huoltokohde tai tila</div>
       </div>
     `}
-
-    ${projects.length > 0 ? `
-      <div class="section-title">Käynnissä</div>
-      ${projects.map(p => `
-        <div class="card" onclick="pushView({view:'project', id:'${p.id}'})">
-          <div class="card-row">
-            <div class="card-icon warm">${icon('hammer')}</div>
-            <div class="card-main">
-              <div class="card-title">${escapeHtml(p.title)}</div>
-              <div class="card-meta"><span>Aloitettu ${fmtDate(p.startDate)}</span></div>
-            </div>
-          </div>
-        </div>
-      `).join('')}
-    ` : ''}
   `;
 }
 
