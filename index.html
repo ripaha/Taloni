@@ -1166,10 +1166,15 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.23';
+const APP_VERSION = '0.10.24';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.24', date: '2026-08-29', changes: [
+    'Valokuvan/asiakirjan tietosivulla näkyy nyt myös kellonaika päivämäärän perässä',
+    'Korjattu päivitysten asennus: kun sovellus lataa uuden version taustalla ja käynnistää sivun uudelleen, ei enää tarvitse painaa "Jatka"-nappia toiseen kertaan',
+    'Poistettu kahdentunut, tarpeeton sivun-uudelleenlatauslogiikka päivityksen yhteydessä'
+  ]},
   { version: '0.10.23', date: '2026-08-29', changes: [
     'Korjattu: valokuvan/asiakirjan tietosivulla näkyi "Invalid Date" päivämäärän sijaan (mm. projektin valokuvat)'
   ]},
@@ -1434,11 +1439,14 @@ if ('serviceWorker' in navigator) {
         });
       });
 
-      // Kun service worker vaihtuu, päivitä sivu
+      // Kun service worker vaihtuu, päivitä sivu. Merkitään ennen uudelleenlatausta,
+      // jotta bootApp() osaa jatkaa suoraan sovellukseen ilman että Jatka-nappia
+      // pitää painaa toiseen kertaan (käyttäjä oli jo ohittanut splashin kerran).
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) return;
         refreshing = true;
+        sessionStorage.setItem('taloniSkipSplashContinue', '1');
         window.location.reload();
       });
     } catch (err) {
@@ -4244,7 +4252,7 @@ async function renderDocumentDetail(id) {
 
   c.innerHTML = `
     <h1 class="page-title">${escapeHtml(d.title)}</h1>
-    <p class="page-subtitle">${escapeHtml(d.category)} · ${fmtSize(d.size)} · ${d.created ? new Date(d.created).toLocaleDateString('fi-FI', { day: 'numeric', month: 'short', year: 'numeric' }) : '–'}</p>
+    <p class="page-subtitle">${escapeHtml(d.category)} · ${fmtSize(d.size)} · ${d.created ? new Date(d.created).toLocaleDateString('fi-FI', { day: 'numeric', month: 'short', year: 'numeric' }) + ' klo ' + new Date(d.created).toLocaleTimeString('fi-FI', { hour: '2-digit', minute: '2-digit' }) : '–'}</p>
     ${preview}
     ${d.notes ? `<div class="card" style="cursor:default; margin-bottom: 16px;"><div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); margin-bottom: 6px; font-weight: 600;">Muistiinpanot</div><div>${escapeHtml(d.notes)}</div></div>` : ''}
     <button class="btn btn-primary" onclick="openDoc('${id}')" style="margin-bottom: 10px;">${icon('external-link')}Avaa tiedosto</button>
@@ -5986,20 +5994,24 @@ async function bootApp() {
   const status = document.getElementById('splashStatus');
   const app = document.getElementById('app');
 
+  async function continueToApp() {
+    await render();
+    app.style.opacity = '1';
+    splash.classList.add('fade-out');
+    document.documentElement.style.background = '';
+    document.querySelector('meta[name="theme-color"]').content = '#ffffff';
+    setTimeout(() => { splash.style.display = 'none'; }, 500);
+    // Taustalla, sovelluksen jo näkyessä: tarkista hiljaa onko Drivessä uudempaa dataa.
+    checkDriveForNewerBackup();
+  }
+
   function showContinueBtn() {
     const btn = document.createElement('button');
     btn.textContent = 'Jatka';
     btn.style.cssText = 'margin-top:28px; padding:14px 48px; border-radius:14px; border:none; background:white; color:#2563eb; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.15);';
     btn.onclick = async () => {
       btn.disabled = true;
-      await render();
-      app.style.opacity = '1';
-      splash.classList.add('fade-out');
-      document.documentElement.style.background = '';
-      document.querySelector('meta[name="theme-color"]').content = '#ffffff';
-      setTimeout(() => { splash.style.display = 'none'; }, 500);
-      // Taustalla, sovelluksen jo näkyessä: tarkista hiljaa onko Drivessä uudempaa dataa.
-      checkDriveForNewerBackup();
+      await continueToApp();
     };
     // Lisätään nappi ennen SVG-kuvitusta
     const art = document.querySelector('.splash-bottom-art');
@@ -6055,9 +6067,8 @@ async function bootApp() {
             const art = document.querySelector('.splash-bottom-art');
             const content = document.querySelector('.splash-content');
             content.insertBefore(updateBtn, art);
-
-            // Päivitetään sivu automaattisesti kun uusi SW ottaa kontrollin
-            navigator.serviceWorker.addEventListener('controllerchange', () => location.reload());
+            // Huom: sivun uudelleenlataus SKIP_WAITINGin jälkeen hoidetaan jo
+            // PWA-osion controllerchange-kuuntelijassa — ei tehdä sitä kahdesti tässä.
           } else {
             status.textContent = `Uusin versio käytössä (${APP_VERSION})`;
           }
@@ -6075,7 +6086,15 @@ async function bootApp() {
     console.error('bootApp virhe:', err);
   }
 
-  showContinueBtn();
+  // Jos tultiin tähän juuri sovelluksen itsensä käynnistämän päivityksen takia
+  // (käyttäjä oli jo painanut Jatka aiemmin ja hyväksynyt sovelluksen käytön),
+  // jatketaan suoraan sisään sen sijaan että vaadittaisiin Jatka-nappia uudestaan.
+  if (sessionStorage.getItem('taloniSkipSplashContinue')) {
+    sessionStorage.removeItem('taloniSkipSplashContinue');
+    await continueToApp();
+  } else {
+    showContinueBtn();
+  }
 }
 
 bootApp();
