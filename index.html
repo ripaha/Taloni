@@ -1166,10 +1166,14 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.25';
+const APP_VERSION = '0.10.26';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.26', date: '2026-08-29', changes: [
+    'Korjattu: puhelimen selain saattoi estää automaattisen Drive-tarkistuksen popup-ikkunana, koska se käynnistyi vasta etusivun renderöinnin jälkeen — nyt se käynnistyy heti Jatka-painalluksesta',
+    'Asetuksiin lisätty "Tarkista Drivestä nyt" -nappi varmaksi varalle, jos automaattinen tarkistus silti jää selaimen estämäksi'
+  ]},
   { version: '0.10.25', date: '2026-08-29', changes: [
     'Korjattu: Google-kirjautumisikkuna vilahti joka kerta kun sovellus avattiin, koska Drive-tarkistus tehtiin joka käynnistyksellä',
     'Drive-tarkistus tehdään nyt korkeintaan kerran 30 minuutissa laitetta kohden'
@@ -5498,6 +5502,8 @@ async function openSettingsModal() {
     <div class="section-title">Google Drive -varmuuskopio</div>
     <button class="btn btn-secondary" onclick="backupToGoogleDrive()" style="margin-bottom: 10px;">${icon('cloud-upload')}Varmuuskopioi Driveen nyt</button>
     <p id="driveBackupStatus" style="font-size: 13px; color: var(--ink-soft); margin-top: -4px; margin-bottom: 8px; line-height: 1.5;">${escapeHtml(driveBackupText)} — tallentaa tiedoston "${DRIVE_BACKUP_FILENAME}" omaan Google Driveesi.</p>
+    <button class="btn btn-secondary" onclick="checkDriveManually()" style="margin-bottom: 10px;">${icon('cloud-download')}Tarkista Drivestä nyt</button>
+    <p style="font-size: 13px; color: var(--ink-soft); margin-top: -4px; margin-bottom: 8px; line-height: 1.5;">Käytä tätä jos automaattinen tarkistus ei toimi puhelimella (selain saattaa estää sen popup-ikkunana).</p>
 
     <div class="section-title">Vaaravyöhyke</div>
     <button class="btn btn-danger" onclick="resetData()">${icon('trash-2')}Tyhjennä kaikki tiedot</button>
@@ -5774,10 +5780,44 @@ async function restoreFromGoogleDrive(fileId, token) {
 // joka ikinen kerta kun sovellus avataan.
 const DRIVE_CHECK_MIN_INTERVAL_MS = 30 * 60 * 1000;
 
+// Hakee Drivestä varmuuskopion muokkausajan ja vertaa sitä tällä laitteella tiedossa
+// olevaan. Jos Drivessä on uudempi, kysytään käyttäjältä haetaanko se. silent=true
+// ei näytä mitään jos ei ollut mitään uutta (käytetään automaattisessa taustatarkistuksessa).
+async function compareDriveTimeAndPrompt(token, silent) {
+  const fileId = await findDriveBackupFileId(token);
+  if (!fileId) {
+    if (!silent) toast('Drivessä ei ole vielä varmuuskopiota');
+    return;
+  }
+  const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime`, {
+    headers: { Authorization: 'Bearer ' + token }
+  });
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  const info = await res.json();
+  const driveTime = new Date(info.modifiedTime).getTime();
+  const localTime = (await dbGet('settings', 'googleDriveBackupTime'))?.value || 0;
+
+  // Pieni puskuri (5s) kellojen pyöristyserojen varalta.
+  if (driveTime > localTime + 5000) {
+    confirmDialog(
+      `Google Drivessä on uudempi varmuuskopio (${new Date(driveTime).toLocaleString('fi-FI')}) kuin tällä laitteella tiedossa ` +
+      `(${localTime ? new Date(localTime).toLocaleString('fi-FI') : 'ei koskaan'}). Haetaanko se käyttöön? Tämä korvaa laitteen nykyiset tiedot.`,
+      () => restoreFromGoogleDrive(fileId, token),
+      'Uudempi varmuuskopio löytyi',
+      'Hae Drivestä'
+    );
+  } else if (!silent) {
+    toast('Sinulla on jo uusin data Drivestä');
+  }
+}
+
 // Sovelluksen käynnistyessä: tarkistaa hiljaa (ei koskaan lupaikkunaa) onko Drivessä
-// uudempi varmuuskopio kuin mitä tällä laitteella tiedetään olevan, ja jos on,
-// kysyy käyttäjältä haetaanko se. Epäonnistuu aina hiljaa jos Drive-yhteyttä ei ole
-// (esim. ei koskaan kirjauduttu tällä laitteella) — ei häiritse normaalia käyttöä.
+// uudempi varmuuskopio kuin mitä tällä laitteella tiedetään olevan. Epäonnistuu aina
+// hiljaa jos Drive-yhteyttä ei ole (esim. ei koskaan kirjauduttu tällä laitteella) —
+// ei häiritse normaalia käyttöä. HUOM: mobiiliselaimet (etenkin Safari) saattavat
+// silti estää Googlen "hiljaisen" tunnuksenhaun popup-ikkunana, jos käyttäjän
+// kosketuksesta on ehtinyt kulua liikaa aikaa — silloin tämä ei toimi ja tilalle
+// jää asetusten manuaalinen "Tarkista Drivestä nyt" -nappi (checkDriveManually).
 async function checkDriveForNewerBackup() {
   const lastCheck = (await dbGet('settings', 'googleDriveLastCheckTime'))?.value || 0;
   if (Date.now() - lastCheck < DRIVE_CHECK_MIN_INTERVAL_MS) {
@@ -5798,29 +5838,28 @@ async function checkDriveForNewerBackup() {
   }
 
   try {
-    const fileId = await findDriveBackupFileId(token);
-    if (!fileId) return;
-
-    const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=modifiedTime`, {
-      headers: { Authorization: 'Bearer ' + token }
-    });
-    if (!res.ok) return;
-    const info = await res.json();
-    const driveTime = new Date(info.modifiedTime).getTime();
-    const localTime = (await dbGet('settings', 'googleDriveBackupTime'))?.value || 0;
-
-    // Pieni puskuri (5s) kellojen pyöristyserojen varalta.
-    if (driveTime > localTime + 5000) {
-      confirmDialog(
-        `Google Drivessä on uudempi varmuuskopio (${new Date(driveTime).toLocaleString('fi-FI')}) kuin tällä laitteella tiedossa ` +
-        `(${localTime ? new Date(localTime).toLocaleString('fi-FI') : 'ei koskaan'}). Haetaanko se käyttöön? Tämä korvaa laitteen nykyiset tiedot.`,
-        () => restoreFromGoogleDrive(fileId, token),
-        'Uudempi varmuuskopio löytyi',
-        'Hae Drivestä'
-      );
-    }
+    await compareDriveTimeAndPrompt(token, true);
   } catch (err) {
     console.log('[DriveCheck] tarkistus epäonnistui, ohitetaan:', err.message);
+  }
+}
+
+// Manuaalinen versio asetuksista: suora napin painallus, joten Google-popup ei jää
+// mobiiliselaimissa estetyksi kuten automaattinen tausta-tarkistus saattaa jäädä.
+async function checkDriveManually() {
+  toast('Tarkistetaan Drivestä…');
+  let token;
+  try {
+    token = await getGoogleAccessToken();
+  } catch (err) {
+    alert('Google-kirjautuminen epäonnistui: ' + err.message);
+    return;
+  }
+  try {
+    await dbPut('settings', { key: 'googleDriveLastCheckTime', value: Date.now() });
+    await compareDriveTimeAndPrompt(token, false);
+  } catch (err) {
+    alert('Tarkistus epäonnistui: ' + err.message);
   }
 }
 
@@ -6012,14 +6051,17 @@ async function bootApp() {
   const app = document.getElementById('app');
 
   async function continueToApp() {
+    // Kutsutaan HETI, ennen mitään muuta await-vaihetta: mobiiliselaimet (etenkin Safari)
+    // tulkitsevat popupin avauksen käyttäjän kosketuksesta johtuvaksi vain jos se tehdään
+    // mahdollisimman lähellä itse klikkaustapahtumaa. Jos etusivu renderöitäisiin ensin,
+    // selain saattaa jo estää popupin "ei-toivottuna" siihen mennessä.
+    checkDriveForNewerBackup();
     await render();
     app.style.opacity = '1';
     splash.classList.add('fade-out');
     document.documentElement.style.background = '';
     document.querySelector('meta[name="theme-color"]').content = '#ffffff';
     setTimeout(() => { splash.style.display = 'none'; }, 500);
-    // Taustalla, sovelluksen jo näkyessä: tarkista hiljaa onko Drivessä uudempaa dataa.
-    checkDriveForNewerBackup();
   }
 
   function showContinueBtn() {
