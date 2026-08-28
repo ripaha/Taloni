@@ -1162,10 +1162,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.17';
+const APP_VERSION = '0.10.18';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.18', date: '2026-08-29', changes: [
+    'Korjattu alanavi tietokoneella: osa linkeistä (esim. Asetukset) oli piilossa eikä tavallinen hiiren rulla vierittänyt navia vaakasuunnassa — nyt rullaus toimii navin päällä',
+  ]},
   { version: '0.10.17', date: '2026-08-29', changes: [
     'Google-kirjautumiskokeilu: tulos näytetään nyt alert-ikkunassa (ei häviävällä toast-viestillä) ja virheet lokitetaan konsoliin, jotta testaus onnistuu luotettavammin'
   ]},
@@ -1869,6 +1872,18 @@ function scrollNavToActive() {
     if (active) active.scrollIntoView({ inline: 'nearest', block: 'nearest', behavior: 'smooth' });
   }, 80);
 }
+
+// Tietokoneella hiiren rulla vierittää oletuksena pystysuunnassa, mutta alanavi
+// vierii vaakasuunnassa — ilman tätä osa napeista (esim. Asetukset) ei tunnu
+// olevan saavutettavissa hiirellä, vain kosketusnäytön sivuttaisvedolla.
+document.getElementById('nav').addEventListener('wheel', (e) => {
+  const inner = e.currentTarget.querySelector('.nav-inner');
+  if (!inner || inner.scrollWidth <= inner.clientWidth) return;
+  if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+    inner.scrollLeft += e.deltaY;
+    e.preventDefault();
+  }
+}, { passive: false });
 
 function switchToView(tabId, viewId) {
   state.currentTab = tabId;
