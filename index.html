@@ -1166,10 +1166,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.10.27';
+const APP_VERSION = '0.10.28';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.10.28', date: '2026-08-29', changes: [
+    'Korjattu: Drive-kirjautumisnapit ("Varmuuskopioi Driveen nyt", "Tarkista Drivestä nyt") toimivat vain ensimmäisellä painalluksella sovelluskerran aikana — toinen painallus yritti hiljaista kirjautumista, joka ei toimi asennetussa PWA:ssa. Nyt käytetään aina täyttä kirjautumispyyntöä.'
+  ]},
   { version: '0.10.27', date: '2026-08-29', changes: [
     'Poistettu automaattinen, näkymätön Drive-tarkistus käynnistyksessä — se ei toiminut luotettavasti asennetussa PWA:ssa (Chrome/Android)',
     'Ainoa tapa tarkistaa Drive nyt on Asetusten "Tarkista Drivestä nyt" -nappi, joka on todettu toimivaksi'
@@ -5658,8 +5661,13 @@ function getGoogleAccessToken() {
       googleAccessToken = response.access_token;
       resolve(googleAccessToken);
     };
-    // Jos meillä on jo aiemmin saatu tunnus, yritetään ensin hiljaa ilman lupaikkunaa
-    googleTokenClient.requestAccessToken({ prompt: googleAccessToken ? '' : 'consent' });
+    // Käytetään AINA 'consent'-pyyntöä (ei koskaan hiljaista '' -pyyntöä), koska tätä
+    // kutsutaan aina suoraan napin painalluksesta. Hiljainen pyyntö nojaa piilotettuun
+    // iframe/eväste-mekanismiin, joka ei toimi luotettavasti asennetussa PWA:ssa — ja
+    // jos tunnus olisi jo muistissa edellisestä kutsusta (sovellus ei sulkeutunut
+    // kokonaan), '' valittaisiin ja seuraava kutsu epäonnistuisi täsmälleen samasta
+    // syystä kuin automaattinen taustatarkistus aiemmin.
+    googleTokenClient.requestAccessToken({ prompt: 'consent' });
   });
 }
 
