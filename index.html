@@ -1220,10 +1220,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.6';
+const APP_VERSION = '0.11.7';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.7', date: '2026-08-30', changes: [
+    'Projektin etusivulla kustannukset näkyvät nyt ryhmittäin eriteltynä (ryhmän nimi + välisumma) yhteissumman lisäksi'
+  ]},
   { version: '0.11.6', date: '2026-08-29', changes: [
     'Korjattu: rivin/ryhmän ollessa aktiivisena näkyi sekä kytkinikoni että ylös/alas-nuolet päällekkäin — nuolet korvaavat nyt ikonin kokonaan samassa tilassa'
   ]},
@@ -3154,9 +3157,15 @@ async function renderProjectDetail(id) {
     </div>
     <div class="card" style="padding:14px 16px; margin-bottom:16px;" onclick="openCostsModal('${id}')">
       ${costsRowCount === 0 ? `<div style="font-size:14px; color:var(--ink-soft);">Ei kustannuksia</div>` : `
+      ${costGroups.filter(g => g.rows.length > 0).map(g => `
+      <div style="display:flex; justify-content:space-between; font-size:14px; padding:3px 0;">
+        <span style="color:var(--ink-soft);">${escapeHtml(g.name || 'Nimetön ryhmä')}</span>
+        <span>${fmtEuro(costsGroupTotal(g))}</span>
+      </div>`).join('')}
+      <div style="border-top:1px solid var(--border); margin:6px 0;"></div>
       <div style="display:flex; justify-content:space-between; font-size:14px;">
-        <span style="color:var(--ink-soft);">Yhteensä</span>
-        <span style="font-weight:600;">${fmtEuro(costsTotal)}</span>
+        <span style="font-weight:600;">Yhteensä</span>
+        <span style="font-weight:700;">${fmtEuro(costsTotal)}</span>
       </div>`}
     </div>
 
