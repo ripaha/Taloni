@@ -782,13 +782,14 @@ body {
 }
 .costs-total-row {
   display: flex; justify-content: space-between; align-items: baseline;
-  padding: 4px 0 14px; margin-bottom: 12px; border-bottom: 2px solid var(--border);
+  padding: 12px 0 2px; margin-top: 4px; border-top: 2px solid var(--border);
   font-weight: 700; font-size: 17px;
 }
-.cost-group { margin-bottom: 14px; }
+.cost-group { margin-bottom: 14px; border-radius: 8px; transition: background-color 0.15s; }
+.cost-group.selected { background: var(--accent-soft); }
 .cost-group-header {
   display: flex; align-items: center; gap: 6px;
-  padding: 6px 0; border-bottom: 1px solid var(--border);
+  padding: 6px 8px; border-bottom: 1px solid var(--border);
 }
 .cost-group-name {
   flex: 1; min-width: 0; border: none; background: transparent;
@@ -800,8 +801,10 @@ body {
 .cost-group-subtotal { font-size: 14px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; flex-shrink: 0; }
 .cost-row {
   display: flex; align-items: flex-start; gap: 6px;
-  padding: 7px 0; border-bottom: 1px solid var(--border-soft);
+  padding: 7px 8px 7px 22px; border-bottom: 1px solid var(--border-soft);
+  border-radius: 8px; transition: background-color 0.15s;
 }
+.cost-row.selected { background: var(--accent-soft); }
 .cost-row:last-child { border-bottom: none; }
 .cost-row-main { flex: 1; min-width: 0; }
 .cost-desc {
@@ -834,14 +837,23 @@ body {
   padding: 0;
 }
 .row-remove svg { width: 16px; height: 16px; }
-.drag-handle {
+.cost-move-toggle {
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
   width: 22px; height: 28px; margin-top: 2px;
-  color: var(--ink-faint); cursor: grab; touch-action: none;
+  background: none; border: none; color: var(--ink-faint); cursor: pointer; padding: 0;
 }
-.drag-handle svg { width: 16px; height: 16px; }
-.drag-handle:active { cursor: grabbing; }
-.cost-group.dragging, .cost-row.dragging { opacity: 0.35; }
+.cost-move-toggle svg { width: 16px; height: 16px; }
+.cost-move-arrows {
+  flex-shrink: 0; display: flex; flex-direction: column;
+  width: 22px; margin-top: 2px;
+}
+.cost-move-arrows button {
+  width: 22px; height: 14px; padding: 0; border: none; background: transparent;
+  color: var(--accent); cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+}
+.cost-move-arrows button:disabled { color: var(--ink-faint); cursor: default; }
+.cost-move-arrows button svg { width: 14px; height: 14px; }
 
 /* --- Pinta-alat --- */
 .area-type-header {
@@ -1204,10 +1216,17 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.1';
+const APP_VERSION = '0.11.2';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.2', date: '2026-08-29', changes: [
+    'Kustannusten raahaus korvattu valitse+nuolet-toiminnolla: napauta rivin/ryhmän kuvaketta, jolloin ilmestyy ylös/alas-nuolet — luotettavampi puhelimella kuin raahaaminen',
+    'Rivin voi siirtää nuolilla myös toiseen ryhmään (ylös/alas ryhmän rajan yli)',
+    'Yksi yhteinen "Lisää rivi" -nappi jokaisen ryhmän omien nappien sijaan — uusi rivi lisätään viimeiseen ryhmään ja on heti valittuna siirtoa varten',
+    'Kokonaissumma siirretty näkymän alareunaan',
+    'Ryhmän sisällä olevat rivit sisennetty'
+  ]},
   { version: '0.11.1', date: '2026-08-29', changes: [
     'Kustannusrivin voi nyt raahata myös toisen ryhmän sisään, ei enää vain saman ryhmän sisällä järjestykseen'
   ]},
@@ -3230,36 +3249,58 @@ function costsGrandTotal() {
   return state._costsDraft.reduce((s, g) => s + costsGroupTotal(g), 0);
 }
 
+// Rivin/ryhmän "valinta" ylös/alas-siirtoa varten (korvaa raahauksen, joka oli
+// hankala puhelimella). Vain yksi voi olla valittuna kerrallaan.
+let costsSelected = null; // { type: 'row'|'group', id }
+
 function openCostsModal(projectId) {
   dbGet('projects', projectId).then(p => {
     state._costsDraft = JSON.parse(JSON.stringify(migrateCostGroups(p)));
+    costsSelected = null;
     openModal(`
       <div class="modal-title">Kustannukset</div>
-      <div class="costs-total-row"><span>Yhteensä</span><span id="costsGrandTotal">${costsGrandTotal().toFixed(2)} €</span></div>
       <div id="costsGroups"></div>
+      <button class="btn btn-secondary" style="width:100%; margin-bottom:10px;" onclick="addCostRowGlobal()">${icon('plus')}Lisää rivi</button>
       <button class="btn btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addCostGroup()">${icon('plus')}Lisää ryhmä</button>
+      <div class="costs-total-row"><span>Yhteensä</span><span id="costsGrandTotal">${costsGrandTotal().toFixed(2)} €</span></div>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
         <button class="btn btn-primary" onclick="saveCostGroups('${projectId}')">Tallenna</button>
       </div>`);
     renderCostGroups();
-    initCostsDragHandlers();
   });
 }
 
 function renderCostGroups() {
   const el = document.getElementById('costsGroups');
-  el.innerHTML = state._costsDraft.map((g, gi) => `
-    <div class="cost-group" data-group-idx="${gi}" data-group-id="${g.id}">
+  const groups = state._costsDraft;
+  el.innerHTML = groups.map((g, gi) => {
+    const gSelected = costsSelected?.type === 'group' && costsSelected.id === g.id;
+    return `
+    <div class="cost-group ${gSelected ? 'selected' : ''}" data-group-idx="${gi}" data-group-id="${g.id}">
       <div class="cost-group-header">
-        <span class="drag-handle" data-drag="group" data-group-idx="${gi}">${icon('grip-vertical')}</span>
+        <button class="cost-move-toggle" onclick="toggleCostSelect('group','${g.id}')">${icon('chevrons-up-down')}</button>
+        ${gSelected ? `
+          <div class="cost-move-arrows">
+            <button onclick="moveCostGroup('${g.id}', -1)" ${gi === 0 ? 'disabled' : ''}>${icon('chevron-up')}</button>
+            <button onclick="moveCostGroup('${g.id}', 1)" ${gi === groups.length - 1 ? 'disabled' : ''}>${icon('chevron-down')}</button>
+          </div>` : ''}
         <input type="text" class="cost-group-name" value="${escapeHtml(g.name || '')}" placeholder="Ryhmän nimi" oninput="state._costsDraft[${gi}].name=this.value">
         <span class="cost-group-subtotal">${costsGroupTotal(g).toFixed(2)} €</span>
         <button class="row-remove" onclick="removeCostGroup(${gi})">${icon('trash-2')}</button>
       </div>
-      ${g.rows.map((r, ri) => `
-        <div class="cost-row" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
-          <span class="drag-handle" data-drag="row">${icon('grip-vertical')}</span>
+      ${g.rows.map((r, ri) => {
+        const rSelected = costsSelected?.type === 'row' && costsSelected.id === r.id;
+        const isFirstOverall = gi === 0 && ri === 0;
+        const isLastOverall = gi === groups.length - 1 && ri === g.rows.length - 1;
+        return `
+        <div class="cost-row ${rSelected ? 'selected' : ''}" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
+          <button class="cost-move-toggle" onclick="toggleCostSelect('row','${r.id}')">${icon('chevrons-up-down')}</button>
+          ${rSelected ? `
+            <div class="cost-move-arrows">
+              <button onclick="moveCostRow('${r.id}', -1)" ${isFirstOverall ? 'disabled' : ''}>${icon('chevron-up')}</button>
+              <button onclick="moveCostRow('${r.id}', 1)" ${isLastOverall ? 'disabled' : ''}>${icon('chevron-down')}</button>
+            </div>` : ''}
           <div class="cost-row-main">
             <textarea rows="1" class="cost-desc" placeholder="Kuvaus" oninput="autoGrowCostDesc(this); state._costsDraft[${gi}].rows[${ri}].desc=this.value">${escapeHtml(r.desc || '')}</textarea>
           </div>
@@ -3268,11 +3309,60 @@ function renderCostGroups() {
             <span class="cost-currency">€</span>
           </div>
           <button class="row-remove" onclick="removeCostRow(${gi}, ${ri})">${icon('x')}</button>
-        </div>`).join('')}
-      <button class="btn btn-ghost" style="width:100%; margin-top:4px;" onclick="addCostRow(${gi})">${icon('plus')}Lisää rivi</button>
-    </div>`).join('');
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
   refreshIcons();
   el.querySelectorAll('.cost-desc').forEach(autoGrowCostDesc);
+}
+
+function toggleCostSelect(type, id) {
+  costsSelected = (costsSelected?.type === type && costsSelected.id === id) ? null : { type, id };
+  renderCostGroups();
+}
+
+function moveCostGroup(id, dir) {
+  const idx = state._costsDraft.findIndex(g => g.id === id);
+  const newIdx = idx + dir;
+  if (newIdx < 0 || newIdx >= state._costsDraft.length) return;
+  const [g] = state._costsDraft.splice(idx, 1);
+  state._costsDraft.splice(newIdx, 0, g);
+  renderCostGroups();
+}
+
+function moveCostRow(rowId, dir) {
+  let gi = -1, ri = -1;
+  for (let i = 0; i < state._costsDraft.length; i++) {
+    const idx = state._costsDraft[i].rows.findIndex(r => r.id === rowId);
+    if (idx !== -1) { gi = i; ri = idx; break; }
+  }
+  if (gi === -1) return;
+  const group = state._costsDraft[gi];
+  const newRi = ri + dir;
+  if (newRi >= 0 && newRi < group.rows.length) {
+    [group.rows[ri], group.rows[newRi]] = [group.rows[newRi], group.rows[ri]];
+  } else if (newRi < 0) {
+    if (gi === 0) return;
+    const [row] = group.rows.splice(ri, 1);
+    state._costsDraft[gi - 1].rows.push(row);
+  } else {
+    if (gi === state._costsDraft.length - 1) return;
+    const [row] = group.rows.splice(ri, 1);
+    state._costsDraft[gi + 1].rows.unshift(row);
+  }
+  renderCostGroups();
+}
+
+function addCostRowGlobal() {
+  if (state._costsDraft.length === 0) {
+    state._costsDraft.push({ id: uid(), name: '', rows: [] });
+  }
+  const lastGroup = state._costsDraft[state._costsDraft.length - 1];
+  const newRow = { id: uid(), desc: '', amount: '' };
+  lastGroup.rows.push(newRow);
+  costsSelected = { type: 'row', id: newRow.id };
+  renderCostGroups();
 }
 
 function autoGrowCostDesc(el) {
@@ -3308,11 +3398,6 @@ function removeCostGroup(gi) {
   }
 }
 
-function addCostRow(gi) {
-  state._costsDraft[gi].rows.push({ id: uid(), desc: '', amount: '' });
-  renderCostGroups();
-}
-
 function removeCostRow(gi, ri) {
   state._costsDraft[gi].rows.splice(ri, 1);
   renderCostGroups();
@@ -3328,101 +3413,6 @@ async function saveCostGroups(projectId) {
   closeModal();
   toast('Kustannukset tallennettu');
   render();
-}
-
-// --- Kustannusrivien/-ryhmien raahaus ---
-// Kevyt osoitin-pohjainen (pointer events) toteutus: kosketusnäytöllä toimiva,
-// ei riipu selaimen natiivista drag-and-drop-API:sta joka ei toimi hyvin puhelimella.
-let costsDrag = null;
-
-function initCostsDragHandlers() {
-  const container = document.getElementById('costsGroups');
-  if (!container || container._dragInit) return;
-  container._dragInit = true;
-  container.addEventListener('pointerdown', onCostsDragStart);
-  container.addEventListener('pointermove', onCostsDragMove);
-  container.addEventListener('pointerup', onCostsDragEnd);
-  container.addEventListener('pointercancel', onCostsDragEnd);
-}
-
-function onCostsDragStart(e) {
-  const handle = e.target.closest('.drag-handle');
-  if (!handle) return;
-  e.preventDefault();
-  const type = handle.dataset.drag;
-  const el = type === 'group' ? handle.closest('.cost-group') : handle.closest('.cost-row');
-  costsDrag = { type, el };
-  el.classList.add('dragging');
-}
-
-function onCostsDragMove(e) {
-  if (!costsDrag) return;
-  e.preventDefault();
-  const { type, el } = costsDrag;
-
-  if (type === 'group') {
-    const parent = document.getElementById('costsGroups');
-    const siblings = Array.from(parent.querySelectorAll(':scope > .cost-group')).filter(n => n !== el);
-    let target = null;
-    for (const sib of siblings) {
-      const rect = sib.getBoundingClientRect();
-      if (e.clientY < rect.top + rect.height / 2) { target = sib; break; }
-    }
-    if (target) parent.insertBefore(el, target);
-    else parent.appendChild(el);
-    return;
-  }
-
-  // Rivi: etsitään mikä ryhmä on juuri nyt osoittimen kohdalla — rivin voi raahata
-  // myös toisen ryhmän sisään, ei vain saman ryhmän sisällä järjestykseen.
-  const groupEls = Array.from(document.getElementById('costsGroups').querySelectorAll(':scope > .cost-group'));
-  if (groupEls.length === 0) return;
-  let targetGroup = groupEls.find(g => {
-    const r = g.getBoundingClientRect();
-    return e.clientY >= r.top && e.clientY <= r.bottom;
-  });
-  if (!targetGroup) {
-    const firstRect = groupEls[0].getBoundingClientRect();
-    targetGroup = e.clientY < firstRect.top ? groupEls[0] : groupEls[groupEls.length - 1];
-  }
-  const rowSiblings = Array.from(targetGroup.querySelectorAll(':scope > .cost-row')).filter(n => n !== el);
-  let target = null;
-  for (const sib of rowSiblings) {
-    const rect = sib.getBoundingClientRect();
-    if (e.clientY < rect.top + rect.height / 2) { target = sib; break; }
-  }
-  if (target) {
-    targetGroup.insertBefore(el, target);
-  } else {
-    // Rivien perässä on aina ryhmän oma "Lisää rivi" -nappi — ei liitetä sen ohi.
-    targetGroup.insertBefore(el, targetGroup.querySelector(':scope > .btn-ghost'));
-  }
-}
-
-function onCostsDragEnd() {
-  if (!costsDrag) return;
-  const { type, el } = costsDrag;
-  el.classList.remove('dragging');
-  costsDrag = null;
-
-  if (type === 'group') {
-    const parent = document.getElementById('costsGroups');
-    const newOrder = Array.from(parent.querySelectorAll(':scope > .cost-group')).map(n => n.dataset.groupId);
-    state._costsDraft = newOrder.map(id => state._costsDraft.find(g => g.id === id));
-  } else {
-    const rowId = el.dataset.rowId;
-    let rowObj = null;
-    for (const g of state._costsDraft) {
-      const idx = g.rows.findIndex(r => r.id === rowId);
-      if (idx !== -1) { rowObj = g.rows.splice(idx, 1)[0]; break; }
-    }
-    const newGroupEl = el.closest('.cost-group');
-    const newGroup = state._costsDraft.find(g => g.id === newGroupEl.dataset.groupId);
-    const rowEls = Array.from(newGroupEl.querySelectorAll(':scope > .cost-row'));
-    const newIndex = rowEls.indexOf(el);
-    newGroup.rows.splice(newIndex, 0, rowObj);
-  }
-  renderCostGroups();
 }
 
 // --- Pinta-alat ---
