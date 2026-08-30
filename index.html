@@ -1216,10 +1216,15 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.2';
+const APP_VERSION = '0.11.3';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.3', date: '2026-08-29', changes: [
+    'Ryhmän voi nyt poistaa vain jos siinä ei ole rivejä — muuten kehotetaan poistamaan/siirtämään rivit ensin',
+    'Kustannussummat näkyvät kokonaislukuina ilman desimaaleja',
+    '"Lisää rivi" ja "Lisää ryhmä" -napit pienemmiksi ja samalle riville'
+  ]},
   { version: '0.11.2', date: '2026-08-29', changes: [
     'Kustannusten raahaus korvattu valitse+nuolet-toiminnolla: napauta rivin/ryhmän kuvaketta, jolloin ilmestyy ylös/alas-nuolet — luotettavampi puhelimella kuin raahaaminen',
     'Rivin voi siirtää nuolilla myös toiseen ryhmään (ylös/alas ryhmän rajan yli)',
@@ -3138,7 +3143,7 @@ async function renderProjectDetail(id) {
       ${costsRowCount === 0 ? `<div style="font-size:14px; color:var(--ink-soft);">Ei kustannuksia</div>` : `
       <div style="display:flex; justify-content:space-between; font-size:14px;">
         <span style="color:var(--ink-soft);">Yhteensä</span>
-        <span style="font-weight:600;">${costsTotal.toFixed(2)} €</span>
+        <span style="font-weight:600;">${fmtEuro(costsTotal)}</span>
       </div>`}
     </div>
 
@@ -3248,6 +3253,7 @@ function costsGroupTotal(g) {
 function costsGrandTotal() {
   return state._costsDraft.reduce((s, g) => s + costsGroupTotal(g), 0);
 }
+const fmtEuro = (n) => Math.round(n) + ' €';
 
 // Rivin/ryhmän "valinta" ylös/alas-siirtoa varten (korvaa raahauksen, joka oli
 // hankala puhelimella). Vain yksi voi olla valittuna kerrallaan.
@@ -3260,9 +3266,11 @@ function openCostsModal(projectId) {
     openModal(`
       <div class="modal-title">Kustannukset</div>
       <div id="costsGroups"></div>
-      <button class="btn btn-secondary" style="width:100%; margin-bottom:10px;" onclick="addCostRowGlobal()">${icon('plus')}Lisää rivi</button>
-      <button class="btn btn-secondary" style="width:100%; margin-bottom:16px;" onclick="addCostGroup()">${icon('plus')}Lisää ryhmä</button>
-      <div class="costs-total-row"><span>Yhteensä</span><span id="costsGrandTotal">${costsGrandTotal().toFixed(2)} €</span></div>
+      <div style="display:flex; gap:8px; margin-bottom:16px;">
+        <button class="btn btn-secondary" style="flex:1; padding:10px; font-size:13px; min-height:auto;" onclick="addCostRowGlobal()">${icon('plus')}Rivi</button>
+        <button class="btn btn-secondary" style="flex:1; padding:10px; font-size:13px; min-height:auto;" onclick="addCostGroup()">${icon('plus')}Ryhmä</button>
+      </div>
+      <div class="costs-total-row"><span>Yhteensä</span><span id="costsGrandTotal">${fmtEuro(costsGrandTotal())}</span></div>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
         <button class="btn btn-primary" onclick="saveCostGroups('${projectId}')">Tallenna</button>
@@ -3286,7 +3294,7 @@ function renderCostGroups() {
             <button onclick="moveCostGroup('${g.id}', 1)" ${gi === groups.length - 1 ? 'disabled' : ''}>${icon('chevron-down')}</button>
           </div>` : ''}
         <input type="text" class="cost-group-name" value="${escapeHtml(g.name || '')}" placeholder="Ryhmän nimi" oninput="state._costsDraft[${gi}].name=this.value">
-        <span class="cost-group-subtotal">${costsGroupTotal(g).toFixed(2)} €</span>
+        <span class="cost-group-subtotal">${fmtEuro(costsGroupTotal(g))}</span>
         <button class="row-remove" onclick="removeCostGroup(${gi})">${icon('trash-2')}</button>
       </div>
       ${g.rows.map((r, ri) => {
@@ -3305,7 +3313,7 @@ function renderCostGroups() {
             <textarea rows="1" class="cost-desc" placeholder="Kuvaus" oninput="autoGrowCostDesc(this); state._costsDraft[${gi}].rows[${ri}].desc=this.value">${escapeHtml(r.desc || '')}</textarea>
           </div>
           <div class="cost-amount-wrap">
-            <input type="number" step="0.01" value="${r.amount || ''}" placeholder="0" oninput="state._costsDraft[${gi}].rows[${ri}].amount=this.value; updateCostsTotals()">
+            <input type="number" step="1" value="${r.amount || ''}" placeholder="0" oninput="state._costsDraft[${gi}].rows[${ri}].amount=this.value; updateCostsTotals()">
             <span class="cost-currency">€</span>
           </div>
           <button class="row-remove" onclick="removeCostRow(${gi}, ${ri})">${icon('x')}</button>
@@ -3375,10 +3383,10 @@ function autoGrowCostDesc(el) {
 function updateCostsTotals() {
   state._costsDraft.forEach((g, gi) => {
     const el = document.querySelector(`.cost-group[data-group-idx="${gi}"] .cost-group-subtotal`);
-    if (el) el.textContent = costsGroupTotal(g).toFixed(2) + ' €';
+    if (el) el.textContent = fmtEuro(costsGroupTotal(g));
   });
   const grand = document.getElementById('costsGrandTotal');
-  if (grand) grand.textContent = costsGrandTotal().toFixed(2) + ' €';
+  if (grand) grand.textContent = fmtEuro(costsGrandTotal());
 }
 
 function addCostGroup() {
@@ -3390,12 +3398,13 @@ function addCostGroup() {
 
 function removeCostGroup(gi) {
   const g = state._costsDraft[gi];
-  const doRemove = () => { state._costsDraft.splice(gi, 1); renderCostGroups(); updateCostsTotals(); };
   if (g.rows.length > 0) {
-    confirmDialog(`Poistetaanko ryhmä "${g.name || 'Nimetön'}" ja sen ${g.rows.length} riviä?`, doRemove, 'Poista ryhmä');
-  } else {
-    doRemove();
+    toast('Poista tai siirrä ensin ryhmän rivit');
+    return;
   }
+  state._costsDraft.splice(gi, 1);
+  renderCostGroups();
+  updateCostsTotals();
 }
 
 function removeCostRow(gi, ri) {
