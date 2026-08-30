@@ -792,11 +792,11 @@ body {
 .cost-group.selected { background: var(--accent-soft); }
 .cost-group-header {
   display: flex; align-items: center; gap: 6px;
-  padding: 8px 10px; border-bottom: 1px solid var(--border);
+  padding: 8px 10px; border-bottom: 2px solid var(--accent);
 }
 .cost-group-name {
   flex: 1; min-width: 0; border: none; background: transparent;
-  font-size: 15px; font-weight: 600; color: var(--ink); padding: 4px 2px;
+  font-size: 15px; font-weight: 700; color: var(--accent-dark); padding: 4px 2px;
   font-family: inherit;
 }
 .cost-group-name:focus { outline: none; }
@@ -1220,10 +1220,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.4';
+const APP_VERSION = '0.11.5';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.5', date: '2026-08-29', changes: [
+    'Ryhmän nimi erottuu nyt selvemmin: sininen korostusväri ja alleviivaus, jotta se ei sekoitu riveihin'
+  ]},
   { version: '0.11.4', date: '2026-08-29', changes: [
     'Kustannustaulukkoon väritys selkeyttämään rakennetta: ryhmän tausta vaaleanharmaana, rivit raidoitettu (joka toinen hieman tummempi)'
   ]},
