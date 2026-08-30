@@ -1204,10 +1204,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.0';
+const APP_VERSION = '0.11.1';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.1', date: '2026-08-29', changes: [
+    'Kustannusrivin voi nyt raahata myös toisen ryhmän sisään, ei enää vain saman ryhmän sisällä järjestykseen'
+  ]},
   { version: '0.11.0', date: '2026-08-29', changes: [
     'Projektien kustannuslaskenta uudistettu kokonaan: "Arvioitu"/"Toteutunut" -jako poistettu, tilalla yksi lista jonka voi ryhmitellä itse nimettyihin ryhmiin (esim. Materiaalit, Työ)',
     'Ryhmille näkyy välisumma ja koko listalle kokonaissumma — myös muokkausikkunassa, ei enää pelkästään projektikortilla',
@@ -3247,7 +3250,7 @@ function openCostsModal(projectId) {
 function renderCostGroups() {
   const el = document.getElementById('costsGroups');
   el.innerHTML = state._costsDraft.map((g, gi) => `
-    <div class="cost-group" data-group-idx="${gi}">
+    <div class="cost-group" data-group-idx="${gi}" data-group-id="${g.id}">
       <div class="cost-group-header">
         <span class="drag-handle" data-drag="group" data-group-idx="${gi}">${icon('grip-vertical')}</span>
         <input type="text" class="cost-group-name" value="${escapeHtml(g.name || '')}" placeholder="Ryhmän nimi" oninput="state._costsDraft[${gi}].name=this.value">
@@ -3255,8 +3258,8 @@ function renderCostGroups() {
         <button class="row-remove" onclick="removeCostGroup(${gi})">${icon('trash-2')}</button>
       </div>
       ${g.rows.map((r, ri) => `
-        <div class="cost-row" data-group-idx="${gi}" data-row-idx="${ri}">
-          <span class="drag-handle" data-drag="row" data-group-idx="${gi}" data-row-idx="${ri}">${icon('grip-vertical')}</span>
+        <div class="cost-row" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
+          <span class="drag-handle" data-drag="row">${icon('grip-vertical')}</span>
           <div class="cost-row-main">
             <textarea rows="1" class="cost-desc" placeholder="Kuvaus" oninput="autoGrowCostDesc(this); state._costsDraft[${gi}].rows[${ri}].desc=this.value">${escapeHtml(r.desc || '')}</textarea>
           </div>
@@ -3348,44 +3351,76 @@ function onCostsDragStart(e) {
   e.preventDefault();
   const type = handle.dataset.drag;
   const el = type === 'group' ? handle.closest('.cost-group') : handle.closest('.cost-row');
-  costsDrag = { type, el, parent: el.parentNode };
+  costsDrag = { type, el };
   el.classList.add('dragging');
 }
 
 function onCostsDragMove(e) {
   if (!costsDrag) return;
   e.preventDefault();
-  const { type, el, parent } = costsDrag;
-  const selector = type === 'group' ? ':scope > .cost-group' : ':scope > .cost-row';
-  const siblings = Array.from(parent.querySelectorAll(selector)).filter(n => n !== el);
+  const { type, el } = costsDrag;
+
+  if (type === 'group') {
+    const parent = document.getElementById('costsGroups');
+    const siblings = Array.from(parent.querySelectorAll(':scope > .cost-group')).filter(n => n !== el);
+    let target = null;
+    for (const sib of siblings) {
+      const rect = sib.getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) { target = sib; break; }
+    }
+    if (target) parent.insertBefore(el, target);
+    else parent.appendChild(el);
+    return;
+  }
+
+  // Rivi: etsitään mikä ryhmä on juuri nyt osoittimen kohdalla — rivin voi raahata
+  // myös toisen ryhmän sisään, ei vain saman ryhmän sisällä järjestykseen.
+  const groupEls = Array.from(document.getElementById('costsGroups').querySelectorAll(':scope > .cost-group'));
+  if (groupEls.length === 0) return;
+  let targetGroup = groupEls.find(g => {
+    const r = g.getBoundingClientRect();
+    return e.clientY >= r.top && e.clientY <= r.bottom;
+  });
+  if (!targetGroup) {
+    const firstRect = groupEls[0].getBoundingClientRect();
+    targetGroup = e.clientY < firstRect.top ? groupEls[0] : groupEls[groupEls.length - 1];
+  }
+  const rowSiblings = Array.from(targetGroup.querySelectorAll(':scope > .cost-row')).filter(n => n !== el);
   let target = null;
-  for (const sib of siblings) {
+  for (const sib of rowSiblings) {
     const rect = sib.getBoundingClientRect();
     if (e.clientY < rect.top + rect.height / 2) { target = sib; break; }
   }
   if (target) {
-    parent.insertBefore(el, target);
-  } else if (type === 'row') {
-    // Rivien perässä on aina ryhmän oma "Lisää rivi" -nappi — ei liitetä sen ohi.
-    parent.insertBefore(el, parent.querySelector(':scope > .btn-ghost'));
+    targetGroup.insertBefore(el, target);
   } else {
-    parent.appendChild(el);
+    // Rivien perässä on aina ryhmän oma "Lisää rivi" -nappi — ei liitetä sen ohi.
+    targetGroup.insertBefore(el, targetGroup.querySelector(':scope > .btn-ghost'));
   }
 }
 
 function onCostsDragEnd() {
   if (!costsDrag) return;
-  const { type, el, parent } = costsDrag;
+  const { type, el } = costsDrag;
   el.classList.remove('dragging');
   costsDrag = null;
 
   if (type === 'group') {
-    const newOrder = Array.from(parent.querySelectorAll(':scope > .cost-group')).map(n => parseInt(n.dataset.groupIdx));
-    state._costsDraft = newOrder.map(i => state._costsDraft[i]);
+    const parent = document.getElementById('costsGroups');
+    const newOrder = Array.from(parent.querySelectorAll(':scope > .cost-group')).map(n => n.dataset.groupId);
+    state._costsDraft = newOrder.map(id => state._costsDraft.find(g => g.id === id));
   } else {
-    const gi = parseInt(el.dataset.groupIdx);
-    const newOrder = Array.from(parent.querySelectorAll(':scope > .cost-row')).map(n => parseInt(n.dataset.rowIdx));
-    state._costsDraft[gi].rows = newOrder.map(i => state._costsDraft[gi].rows[i]);
+    const rowId = el.dataset.rowId;
+    let rowObj = null;
+    for (const g of state._costsDraft) {
+      const idx = g.rows.findIndex(r => r.id === rowId);
+      if (idx !== -1) { rowObj = g.rows.splice(idx, 1)[0]; break; }
+    }
+    const newGroupEl = el.closest('.cost-group');
+    const newGroup = state._costsDraft.find(g => g.id === newGroupEl.dataset.groupId);
+    const rowEls = Array.from(newGroupEl.querySelectorAll(':scope > .cost-row'));
+    const newIndex = rowEls.indexOf(el);
+    newGroup.rows.splice(newIndex, 0, rowObj);
   }
   renderCostGroups();
 }
