@@ -785,11 +785,14 @@ body {
   padding: 12px 0 2px; margin-top: 4px; border-top: 2px solid var(--border);
   font-weight: 700; font-size: 17px;
 }
-.cost-group { margin-bottom: 14px; border-radius: 8px; transition: background-color 0.15s; }
+.cost-group {
+  margin-bottom: 12px; border-radius: 10px; padding-bottom: 2px;
+  background: var(--bg-soft); transition: background-color 0.15s;
+}
 .cost-group.selected { background: var(--accent-soft); }
 .cost-group-header {
   display: flex; align-items: center; gap: 6px;
-  padding: 6px 8px; border-bottom: 1px solid var(--border);
+  padding: 8px 10px; border-bottom: 1px solid var(--border);
 }
 .cost-group-name {
   flex: 1; min-width: 0; border: none; background: transparent;
@@ -801,9 +804,10 @@ body {
 .cost-group-subtotal { font-size: 14px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; flex-shrink: 0; }
 .cost-row {
   display: flex; align-items: flex-start; gap: 6px;
-  padding: 7px 8px 7px 22px; border-bottom: 1px solid var(--border-soft);
+  padding: 7px 10px 7px 26px; border-bottom: 1px solid var(--border);
   border-radius: 8px; transition: background-color 0.15s;
 }
+.cost-row.alt { background: rgba(15, 23, 42, 0.035); }
 .cost-row.selected { background: var(--accent-soft); }
 .cost-row:last-child { border-bottom: none; }
 .cost-row-main { flex: 1; min-width: 0; }
@@ -1216,10 +1220,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.3';
+const APP_VERSION = '0.11.4';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.4', date: '2026-08-29', changes: [
+    'Kustannustaulukkoon väritys selkeyttämään rakennetta: ryhmän tausta vaaleanharmaana, rivit raidoitettu (joka toinen hieman tummempi)'
+  ]},
   { version: '0.11.3', date: '2026-08-29', changes: [
     'Ryhmän voi nyt poistaa vain jos siinä ei ole rivejä — muuten kehotetaan poistamaan/siirtämään rivit ensin',
     'Kustannussummat näkyvät kokonaislukuina ilman desimaaleja',
@@ -3302,7 +3309,7 @@ function renderCostGroups() {
         const isFirstOverall = gi === 0 && ri === 0;
         const isLastOverall = gi === groups.length - 1 && ri === g.rows.length - 1;
         return `
-        <div class="cost-row ${rSelected ? 'selected' : ''}" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
+        <div class="cost-row ${ri % 2 === 1 ? 'alt' : ''} ${rSelected ? 'selected' : ''}" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
           <button class="cost-move-toggle" onclick="toggleCostSelect('row','${r.id}')">${icon('chevrons-up-down')}</button>
           ${rSelected ? `
             <div class="cost-move-arrows">
