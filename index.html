@@ -1261,10 +1261,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.9';
+const APP_VERSION = '0.11.10';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.10', date: '2026-08-30', changes: [
+    'Kustannusrivin poistaminen vaatii nyt vahvistuksen, jotta rivi ei häviä vahingossa x-nappia painettaessa'
+  ]},
   { version: '0.11.9', date: '2026-08-30', changes: [
     'Kustannusten muokkauksessa "+ Rivi" -nappi siirtyi aktiivisen (valitun) ryhmän alle, jotta rivin lisääminen kesken pitkääkin listaa ei vaadi vierittämistä. "+ Ryhmä" pysyy aina alimpana'
   ]},
@@ -3494,9 +3497,12 @@ function removeCostGroup(gi) {
 }
 
 function removeCostRow(gi, ri) {
-  state._costsDraft[gi].rows.splice(ri, 1);
-  renderCostGroups();
-  updateCostsTotals();
+  const row = state._costsDraft[gi].rows[ri];
+  confirmDialog(`Poistetaanko rivi "${row.desc || 'Nimetön'}"?`, () => {
+    state._costsDraft[gi].rows.splice(ri, 1);
+    renderCostGroups();
+    updateCostsTotals();
+  });
 }
 
 async function saveCostGroups(projectId) {
