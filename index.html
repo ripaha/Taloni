@@ -858,6 +858,14 @@ body {
 }
 .cost-move-arrows button:disabled { color: var(--ink-faint); cursor: default; }
 .cost-move-arrows button svg { width: 14px; height: 14px; }
+.cost-add-row-btn {
+  display: flex; align-items: center; justify-content: center; gap: 4px;
+  width: 100%; padding: 8px; margin-top: 2px;
+  border: none; border-top: 1px dashed var(--border);
+  background: transparent; color: var(--accent);
+  font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
+}
+.cost-add-row-btn svg { width: 15px; height: 15px; }
 
 /* --- Kustannusten jakaminen --- */
 .costs-share-textarea {
@@ -1253,10 +1261,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.8';
+const APP_VERSION = '0.11.9';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.9', date: '2026-08-30', changes: [
+    'Kustannusten muokkauksessa "+ Rivi" -nappi siirtyi aktiivisen (valitun) ryhmän alle, jotta rivin lisääminen kesken pitkääkin listaa ei vaadi vierittämistä. "+ Ryhmä" pysyy aina alimpana'
+  ]},
   { version: '0.11.8', date: '2026-08-30', changes: [
     'Lisätty kustannusten jakaminen: "Jaa"-toiminto näyttää kustannukset ryhmittäin selkokielisenä tekstinä, jonka voi kopioida, jakaa puhelimen jakovalikolla tai tulostaa/tallentaa PDF-tiedostoksi'
   ]},
@@ -3327,10 +3338,7 @@ function openCostsModal(projectId) {
     openModal(`
       <div class="modal-title">Kustannukset</div>
       <div id="costsGroups"></div>
-      <div style="display:flex; gap:8px; margin-bottom:16px;">
-        <button class="btn btn-secondary" style="flex:1; padding:10px; font-size:13px; min-height:auto;" onclick="addCostRowGlobal()">${icon('plus')}Rivi</button>
-        <button class="btn btn-secondary" style="flex:1; padding:10px; font-size:13px; min-height:auto;" onclick="addCostGroup()">${icon('plus')}Ryhmä</button>
-      </div>
+      <button class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px; min-height:auto; margin-bottom:16px;" onclick="addCostGroup()">${icon('plus')}Ryhmä</button>
       <div class="costs-total-row"><span>Yhteensä</span><span id="costsGrandTotal">${fmtEuro(costsGrandTotal())}</span></div>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
@@ -3340,9 +3348,24 @@ function openCostsModal(projectId) {
   });
 }
 
+function getActiveCostGroupIndex() {
+  const groups = state._costsDraft;
+  if (groups.length === 0) return -1;
+  if (costsSelected?.type === 'group') {
+    const idx = groups.findIndex(g => g.id === costsSelected.id);
+    if (idx !== -1) return idx;
+  }
+  if (costsSelected?.type === 'row') {
+    const idx = groups.findIndex(g => g.rows.some(r => r.id === costsSelected.id));
+    if (idx !== -1) return idx;
+  }
+  return groups.length - 1;
+}
+
 function renderCostGroups() {
   const el = document.getElementById('costsGroups');
   const groups = state._costsDraft;
+  const activeGi = getActiveCostGroupIndex();
   el.innerHTML = groups.map((g, gi) => {
     const gSelected = costsSelected?.type === 'group' && costsSelected.id === g.id;
     return `
@@ -3380,6 +3403,7 @@ function renderCostGroups() {
           <button class="row-remove" onclick="removeCostRow(${gi}, ${ri})">${icon('x')}</button>
         </div>`;
       }).join('')}
+      ${gi === activeGi ? `<button class="cost-add-row-btn" onclick="addCostRowGlobal()">${icon('plus')}Rivi</button>` : ''}
     </div>`;
   }).join('');
   refreshIcons();
@@ -3427,9 +3451,10 @@ function addCostRowGlobal() {
   if (state._costsDraft.length === 0) {
     state._costsDraft.push({ id: uid(), name: '', rows: [] });
   }
-  const lastGroup = state._costsDraft[state._costsDraft.length - 1];
+  const gi = getActiveCostGroupIndex();
+  const group = state._costsDraft[gi === -1 ? state._costsDraft.length - 1 : gi];
   const newRow = { id: uid(), desc: '', amount: '' };
-  lastGroup.rows.push(newRow);
+  group.rows.push(newRow);
   costsSelected = { type: 'row', id: newRow.id };
   renderCostGroups();
 }
