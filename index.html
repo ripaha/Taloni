@@ -810,6 +810,13 @@ body {
 .cost-row.alt { background: rgba(15, 23, 42, 0.035); }
 .cost-row.selected { background: var(--accent-soft); }
 .cost-row:last-child { border-bottom: none; }
+.cost-row-checkbox {
+  width: 17px; height: 17px; flex-shrink: 0; margin-top: 4px;
+  accent-color: var(--accent); cursor: pointer;
+}
+.cost-row.excluded .cost-desc { color: var(--danger); }
+.cost-row.excluded .cost-amount-wrap input,
+.cost-row.excluded .cost-currency { text-decoration: line-through; }
 .cost-row-main { flex: 1; min-width: 0; }
 .cost-desc {
   display: block; width: 100%; border: none; background: transparent;
@@ -893,6 +900,8 @@ body {
     margin-top: 16px; padding-bottom: 4px; border-bottom: 1px solid #000;
   }
   .print-row { font-size: 13px; padding: 4px 0 4px 14px; }
+  .print-row-excluded span:first-child { color: #dc2626; }
+  .print-row-excluded span:last-child { text-decoration: line-through; }
   .print-total {
     font-weight: 700; font-size: 15px;
     margin-top: 20px; padding-top: 8px; border-top: 2px solid #000;
@@ -1261,10 +1270,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.10';
+const APP_VERSION = '0.11.11';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.11', date: '2026-08-30', changes: [
+    'Kustannusriville voi nyt merkitä valintaruudulla ettei se ole mukana summissa (esim. vaihtoehtoinen tarjous samasta tuotteesta) — rivi jää näkyviin punaisella kuvaustekstillä ja yliviivatulla hinnalla, eikä lasketa ryhmän tai kokonaissumman mukaan. Sama näkyy myös Jaa/PDF-erittelyssä'
+  ]},
   { version: '0.11.10', date: '2026-08-30', changes: [
     'Kustannusrivin poistaminen vaatii nyt vahvistuksen, jotta rivi ei häviä vahingossa x-nappia painettaessa'
   ]},
@@ -3183,7 +3195,7 @@ async function renderProjectDetail(id) {
   const galleryPhotos = await collectGalleryPhotos({ projectId: id });
 
   const costGroups = migrateCostGroups(p);
-  const costsTotal = costGroups.reduce((s, g) => s + g.rows.reduce((s2, r) => s2 + (parseFloat(r.amount) || 0), 0), 0);
+  const costsTotal = costGroups.reduce((s, g) => s + costsGroupTotal(g), 0);
   const costsRowCount = costGroups.reduce((n, g) => n + g.rows.length, 0);
 
   const materials = p.materials || {};
@@ -3323,7 +3335,7 @@ function migrateCostGroups(p) {
 }
 
 function costsGroupTotal(g) {
-  return g.rows.reduce((s, r) => s + (parseFloat(r.amount) || 0), 0);
+  return g.rows.reduce((s, r) => s + (r.excluded ? 0 : (parseFloat(r.amount) || 0)), 0);
 }
 function costsGrandTotal() {
   return state._costsDraft.reduce((s, g) => s + costsGroupTotal(g), 0);
@@ -3389,7 +3401,8 @@ function renderCostGroups() {
         const isFirstOverall = gi === 0 && ri === 0;
         const isLastOverall = gi === groups.length - 1 && ri === g.rows.length - 1;
         return `
-        <div class="cost-row ${ri % 2 === 1 ? 'alt' : ''} ${rSelected ? 'selected' : ''}" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
+        <div class="cost-row ${ri % 2 === 1 ? 'alt' : ''} ${rSelected ? 'selected' : ''} ${r.excluded ? 'excluded' : ''}" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
+          <input type="checkbox" class="cost-row-checkbox" title="Mukana summassa" ${r.excluded ? '' : 'checked'} onchange="state._costsDraft[${gi}].rows[${ri}].excluded=!this.checked; renderCostGroups(); updateCostsTotals();">
           ${rSelected ? `
             <div class="cost-move-arrows">
               <button onclick="moveCostRow('${r.id}', -1)" ${isFirstOverall ? 'disabled' : ''}>${icon('chevron-up')}</button>
@@ -3522,7 +3535,7 @@ function buildCostsShareText(title, groups) {
   groups.forEach(g => {
     lines.push(`${g.name || 'Nimetön ryhmä'} ${fmtEuro(costsGroupTotal(g))}`);
     g.rows.forEach(r => {
-      lines.push(`- ${r.desc || 'Nimetön'}: ${fmtEuro(parseFloat(r.amount) || 0)}`);
+      lines.push(`- ${r.desc || 'Nimetön'}: ${fmtEuro(parseFloat(r.amount) || 0)}${r.excluded ? ' (ei mukana summassa)' : ''}`);
     });
     lines.push('');
   });
@@ -3571,7 +3584,7 @@ function printCostsShare() {
     <h2>Kustannukset</h2>
     ${groups.map(g => `
       <div class="print-group-header"><span>${escapeHtml(g.name || 'Nimetön ryhmä')}</span><span>${fmtEuro(costsGroupTotal(g))}</span></div>
-      ${g.rows.map(r => `<div class="print-row"><span>${escapeHtml(r.desc || '')}</span><span>${fmtEuro(parseFloat(r.amount) || 0)}</span></div>`).join('')}
+      ${g.rows.map(r => `<div class="print-row ${r.excluded ? 'print-row-excluded' : ''}"><span>${escapeHtml(r.desc || '')}</span><span>${fmtEuro(parseFloat(r.amount) || 0)}</span></div>`).join('')}
     `).join('')}
     <div class="print-total"><span>Yhteensä</span><span>${fmtEuro(total)}</span></div>
   `;
