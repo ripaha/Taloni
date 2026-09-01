@@ -77,12 +77,6 @@ body {
   transition: opacity 0.4s ease;
 }
 #splash.fade-out { opacity: 0; pointer-events: none; }
-.splash-bottom-art {
-  width: min(320px, 80vw);
-  opacity: 0.9;
-  margin-top: 32px;
-  pointer-events: none;
-}
 .splash-content {
   display: flex; flex-direction: column; align-items: center;
   gap: 18px;
@@ -103,12 +97,23 @@ body {
   color: white;
   letter-spacing: -0.03em;
 }
-.splash-status {
-  font-size: 13px;
+.splash-tagline {
+  margin-top: -12px;
+  font-size: 15px;
   color: rgba(255, 255, 255, 0.75);
   font-weight: 500;
-  margin-top: 6px;
-  min-height: 18px;
+}
+.splash-dots { display: flex; gap: 6px; margin-top: 6px; }
+.splash-dots span {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+  animation: splash-pulse 1.2s ease-in-out infinite;
+}
+.splash-dots span:nth-child(2) { animation-delay: 0.2s; }
+.splash-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes splash-pulse {
+  0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
 }
 
 /* --- Top bar (kevyt, ei iso hero) --- */
@@ -1238,19 +1243,8 @@ body {
       </g>
     </svg>
     <div class="splash-title">Taloni</div>
-    <div class="splash-status" id="splashStatus">Käynnistetään…</div>
-    <!-- Jatka-nappi lisätään bootApp:ssa tähän -->
-    <svg class="splash-bottom-art" viewBox="0 0 440 380" xmlns="http://www.w3.org/2000/svg" fill="none">
-      <g stroke="white" stroke-width="12" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M55 210 Q120 140 220 105 Q290 140 385 210"/>
-        <path d="M88 200 L88 310"/>
-        <path d="M350 210 L350 310"/>
-        <path d="M295 148 L295 100 L330 100 L330 178"/>
-        <path d="M312 95 Q322 72 310 55 Q298 38 312 20" stroke-width="10"/>
-        <path d="M220 225 Q220 192 195 192 Q170 192 170 217 Q170 242 220 275 Q270 242 270 217 Q270 192 245 192 Q220 192 220 225 Z" stroke-width="10"/>
-        <path d="M5 340 Q110 305 220 310 Q330 315 435 340" stroke-width="11"/>
-      </g>
-    </svg>
+    <div class="splash-tagline">Omakotitalon huoltokirja</div>
+    <div class="splash-dots"><span></span><span></span><span></span></div>
   </div>
 </div>
 
@@ -1270,10 +1264,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.11';
+const APP_VERSION = '0.11.12';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.12', date: '2026-08-30', changes: [
+    'Uudistettu käynnistysnäyttö: Jatka-nappi ja versiotekstit poistettu, sovellus siirtyy nyt automaattisesti sisään lyhyen latausanimaation jälkeen. Myös alaosan talokuvitus poistettiin selkeyden vuoksi. Lisäksi korjattu pieni virhe, jossa ihan ensimmäinen käynnistys aiheutti tarpeettoman ylimääräisen sivun uudelleenlatauksen'
+  ]},
   { version: '0.11.11', date: '2026-08-30', changes: [
     'Kustannusriville voi nyt merkitä valintaruudulla ettei se ole mukana summissa (esim. vaihtoehtoinen tarjous samasta tuotteesta) — rivi jää näkyviin punaisella kuvaustekstillä ja yliviivatulla hinnalla, eikä lasketa ryhmän tai kokonaissumman mukaan. Sama näkyy myös Jaa/PDF-erittelyssä'
   ]},
@@ -1605,14 +1602,20 @@ if ('serviceWorker' in navigator) {
         });
       });
 
-      // Kun service worker vaihtuu, päivitä sivu. Merkitään ennen uudelleenlatausta,
-      // jotta bootApp() osaa jatkaa suoraan sovellukseen ilman että Jatka-nappia
-      // pitää painaa toiseen kertaan (käyttäjä oli jo ohittanut splashin kerran).
+      // Kun service worker vaihtuu, päivitä sivu — mutta vain jos kyseessä on
+      // aito päivitys (sivulla oli jo aktiivinen controller ennen tätä). Ensimmäisellä
+      // koskaan-käynnistyksellä clients.claim() laukaisee tämän saman tapahtuman heti
+      // asennuksen yhteydessä, vaikka kyse ei ole päivityksestä — silloin ei ladata sivua uudelleen.
+      const hadControllerAtLoad = !!navigator.serviceWorker.controller;
       let refreshing = false;
+      let ignoredFirstControllerChange = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (refreshing) return;
+        if (!hadControllerAtLoad && !ignoredFirstControllerChange) {
+          ignoredFirstControllerChange = true;
+          return;
+        }
         refreshing = true;
-        sessionStorage.setItem('taloniSkipSplashContinue', '1');
         window.location.reload();
       });
     } catch (err) {
@@ -6361,10 +6364,13 @@ async function init() {
 // Splash-näytön käsittely + päivityksen tarkistus
 async function bootApp() {
   const splash = document.getElementById('splash');
-  const status = document.getElementById('splashStatus');
   const app = document.getElementById('app');
+  const bootStart = Date.now();
+  const MIN_SPLASH_MS = 900; // splash näkyy hetken, vaikka käynnistys olisi tätä nopeampi
 
   async function continueToApp() {
+    const remaining = MIN_SPLASH_MS - (Date.now() - bootStart);
+    if (remaining > 0) await new Promise(r => setTimeout(r, remaining));
     await render();
     app.style.opacity = '1';
     splash.classList.add('fade-out');
@@ -6373,21 +6379,19 @@ async function bootApp() {
     setTimeout(() => { splash.style.display = 'none'; }, 500);
   }
 
-  function showContinueBtn() {
+  function showBootError(err) {
+    console.error('bootApp virhe:', err);
+    const tagline = document.querySelector('.splash-tagline');
+    if (tagline) tagline.textContent = 'Virhe käynnistyksessä: ' + err.message;
+    document.querySelector('.splash-dots')?.remove();
     const btn = document.createElement('button');
-    btn.textContent = 'Jatka';
-    btn.style.cssText = 'margin-top:28px; padding:14px 48px; border-radius:14px; border:none; background:white; color:#2563eb; font-size:16px; font-weight:700; cursor:pointer; box-shadow:0 4px 16px rgba(0,0,0,0.15);';
-    btn.onclick = async () => {
-      btn.disabled = true;
-      await continueToApp();
-    };
-    // Lisätään nappi ennen SVG-kuvitusta
-    const art = document.querySelector('.splash-bottom-art');
-    document.querySelector('.splash-content').insertBefore(btn, art);
+    btn.textContent = 'Lataa uudelleen';
+    btn.style.cssText = 'margin-top:16px; padding:12px 32px; border-radius:12px; border:none; background:white; color:#2563eb; font-size:15px; font-weight:700; cursor:pointer;';
+    btn.onclick = () => location.reload();
+    document.querySelector('.splash-content').appendChild(btn);
   }
 
   try {
-    status.textContent = 'Käynnistetään…';
     db = await openDB();
     const existingTaxonomies = await dbAll('taxonomies');
     if (existingTaxonomies.length === 0) {
@@ -6409,59 +6413,9 @@ async function bootApp() {
       const ls = await dbGet('settings', 'lastProperty');
       state.currentPropertyId = ls?.value || properties[0].id;
     }
-
-    // SW-päivitystarkistus
-    if ('serviceWorker' in navigator) {
-      try {
-        const reg = await navigator.serviceWorker.getRegistration();
-        if (reg) {
-          await Promise.race([reg.update(), new Promise(r => setTimeout(r, 2000))]);
-          if (reg.waiting) {
-            // Uusi versio odottaa — näytetään ilmoitus ja latauspainike
-            status.textContent = `Uusi versio saatavilla`;
-            status.style.color = 'rgba(255,255,255,0.95)';
-            status.style.fontWeight = '600';
-
-            const updateBtn = document.createElement('button');
-            updateBtn.style.cssText = 'margin-top:16px; padding:12px 32px; border-radius:12px; border:2px solid white; background:transparent; color:white; font-size:15px; font-weight:600; cursor:pointer; display:block; width:100%; max-width:240px;';
-            updateBtn.textContent = 'Lataa ja päivitä';
-            updateBtn.onclick = () => {
-              updateBtn.textContent = 'Päivitetään…';
-              updateBtn.disabled = true;
-              status.textContent = 'Ladataan uutta versiota…';
-              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
-            };
-            // Lisätään nappi Jatka-napin eteen
-            const art = document.querySelector('.splash-bottom-art');
-            const content = document.querySelector('.splash-content');
-            content.insertBefore(updateBtn, art);
-            // Huom: sivun uudelleenlataus SKIP_WAITINGin jälkeen hoidetaan jo
-            // PWA-osion controllerchange-kuuntelijassa — ei tehdä sitä kahdesti tässä.
-          } else {
-            status.textContent = `Uusin versio käytössä (${APP_VERSION})`;
-          }
-        } else {
-          status.textContent = `Versio ${APP_VERSION}`;
-        }
-      } catch(e) {
-        status.textContent = `Versio ${APP_VERSION}`;
-      }
-    } else {
-      status.textContent = `Versio ${APP_VERSION}`;
-    }
-  } catch (err) {
-    status.textContent = `Virhe: ${err.message}`;
-    console.error('bootApp virhe:', err);
-  }
-
-  // Jos tultiin tähän juuri sovelluksen itsensä käynnistämän päivityksen takia
-  // (käyttäjä oli jo painanut Jatka aiemmin ja hyväksynyt sovelluksen käytön),
-  // jatketaan suoraan sisään sen sijaan että vaadittaisiin Jatka-nappia uudestaan.
-  if (sessionStorage.getItem('taloniSkipSplashContinue')) {
-    sessionStorage.removeItem('taloniSkipSplashContinue');
     await continueToApp();
-  } else {
-    showContinueBtn();
+  } catch (err) {
+    showBootError(err);
   }
 }
 
