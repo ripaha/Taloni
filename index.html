@@ -825,17 +825,13 @@ body {
 .costs-card-all { text-align: right; font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
 .cost-group {
   margin-bottom: 12px; border-radius: 10px; padding-bottom: 2px;
-  background: var(--bg-soft);
+  background: var(--bg-soft); transition: box-shadow 0.15s;
 }
+.cost-group.selected { box-shadow: 0 0 0 2px var(--warn) inset; }
 .cost-group-header {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 10px; border-bottom: 2px solid var(--accent);
   background: var(--bg); border-radius: 10px 10px 0 0;
-  transition: background-color 0.15s, box-shadow 0.15s, border-radius 0.15s;
-}
-.cost-group.selected .cost-group-header {
-  background: var(--warn-soft); border-bottom-color: transparent;
-  border-radius: 10px; box-shadow: 0 0 0 2px var(--warn) inset;
 }
 .cost-group-name {
   flex: 1; min-width: 0; border: none; background: transparent;
@@ -848,10 +844,10 @@ body {
 .cost-row {
   display: flex; align-items: flex-start; gap: 6px;
   padding: 7px 10px; border-bottom: 1px solid var(--border);
-  border-radius: 8px; transition: background-color 0.15s, box-shadow 0.15s;
+  transition: background-color 0.15s, box-shadow 0.15s;
 }
 .cost-row.alt { background: rgba(15, 23, 42, 0.035); }
-.cost-row.selected { background: var(--warn-soft); box-shadow: 0 0 0 2px var(--warn) inset; }
+.cost-row.selected { background: var(--warn-soft); box-shadow: 0 0 0 2px var(--warn) inset; border-radius: 8px; }
 .cost-row:last-child { border-bottom: none; }
 .cost-row-checkbox {
   width: 18px; height: 18px; flex-shrink: 0; margin-top: 5px;
@@ -1315,10 +1311,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.21';
+const APP_VERSION = '0.11.22';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.22', date: '2026-09-13', changes: [
+    'Ryhmän valinnan oranssi kehys kiertää nyt koko ryhmän ulkoreunat (otsikko + kaikki rivit + "+ Rivi" -nappi) yhtenä yhtenäisenä korttina, pyöristys vain ylä- ja alakulmissa. Poistettu myös rivien oma pyöristys, joka näkyi häiritsevästi kehyksen sisällä'
+  ]},
   { version: '0.11.21', date: '2026-09-13', changes: [
     'Korjattu: valitun ryhmän oranssi kehys kiersi koko kortin (otsikko+rivit+Rivi-nappi) eikä näyttänyt samalta kuin rivin valinta. Nyt vain ryhmän otsikkorivi saa saman selkeän oranssin pilleri-ulkoasun kuin yksittäinen valittu rivi'
   ]},
