@@ -482,6 +482,15 @@ body {
 .btn-danger { background: transparent; color: var(--danger); border: 1.5px solid var(--danger); width: 100%; }
 .btn-row { display: flex; gap: 10px; margin-top: 10px; }
 .btn-row .btn { flex: 1; }
+/* Modaalin viimeinen nappirivi (Peruuta/Tallenna) pysyy näkyvissä vieritettäessä,
+   jotta pitkän listan (esim. kustannusrivit) muokkaus ei vaadi alas vierittämistä
+   ennen tallennusta */
+.modal-sheet > .btn-row:last-child {
+  position: sticky; bottom: 0; z-index: 2;
+  margin: 10px -22px 0; padding: 10px 22px 0;
+  background: var(--bg);
+  box-shadow: 0 -8px 12px -6px rgba(15, 23, 42, 0.10);
+}
 
 /* --- List item --- */
 .list-item {
@@ -1292,10 +1301,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.15';
+const APP_VERSION = '0.11.16';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.16', date: '2026-09-13', changes: [
+    'Modaalien Peruuta/Tallenna-nappirivi pysyy nyt näkyvissä ruudun alalaidassa vieritettäessä (esim. kustannusrivien muokkaus), eikä tallennusta tarvitse enää etsiä vierittämällä listan loppuun'
+  ]},
   { version: '0.11.15', date: '2026-09-13', changes: [
     'Korjattu: napautettavien teksti-linkkien (esim. "Muokkaa", "Jaa", "Lisää") painaminen saattoi Androidilla käynnistää tekstinvalinnan ja tuoda näytön alareunaan "Hae Googlesta" -palkin sen sijaan että toiminto suoritettaisiin'
   ]},
