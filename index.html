@@ -55,6 +55,9 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; overscroll-behavior-y: none; }
+/* Napautettavat elementit eivät saa käynnistää tekstinvalintaa — muuten Android
+   tulkitsee napautuksen valinnaksi ja näyttää "Hae Googlesta" -palkin näytön alalaidassa */
+button, [onclick] { -webkit-user-select: none; -webkit-touch-callout: none; user-select: none; }
 html { background: #2563eb; }
 
 body {
@@ -1289,10 +1292,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.14';
+const APP_VERSION = '0.11.15';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.15', date: '2026-09-13', changes: [
+    'Korjattu: napautettavien teksti-linkkien (esim. "Muokkaa", "Jaa", "Lisää") painaminen saattoi Androidilla käynnistää tekstinvalinnan ja tuoda näytön alareunaan "Hae Googlesta" -palkin sen sijaan että toiminto suoritettaisiin'
+  ]},
   { version: '0.11.14', date: '2026-09-13', changes: [
     'Korjattu: projektin etusivun kustannuskortista puuttui "Kaikkiaan"-rivi (toteutunut + tulossa yhteensä) silloin kun kortissa näytetään molemmat sarakkeet'
   ]},
