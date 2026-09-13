@@ -807,6 +807,7 @@ body {
 .costs-card-total .costs-card-name { font-weight: 600; color: var(--ink); }
 .costs-card-total .costs-card-num { font-weight: 700; font-variant-numeric: tabular-nums; }
 .costs-card-total .costs-card-future { color: var(--ink-soft); }
+.costs-card-all { text-align: right; font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
 .cost-group {
   margin-bottom: 12px; border-radius: 10px; padding-bottom: 2px;
   background: var(--bg-soft); transition: background-color 0.15s;
@@ -1288,10 +1289,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.13';
+const APP_VERSION = '0.11.14';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.14', date: '2026-09-13', changes: [
+    'Korjattu: projektin etusivun kustannuskortista puuttui "Kaikkiaan"-rivi (toteutunut + tulossa yhteensä) silloin kun kortissa näytetään molemmat sarakkeet'
+  ]},
   { version: '0.11.13', date: '2026-09-13', changes: [
     'Kustannusrivin valintaruutu tarkoittaa nyt "toteutunut" (ei valittu = tulossa oleva kustannus) aiemman "mukana summassa" sijaan. Ei-valittu rivi näkyy vaimeampana, ei enää punaisena tai yliviivattuna. Projektin etusivulla, muokkausnäkymässä ja Jaa/PDF-erittelyssä näkyy nyt toteutunut- ja tulossa-summa erikseen aina kun projektissa on tulossa olevia kustannuksia'
   ]},
@@ -3266,7 +3270,8 @@ async function renderProjectDetail(id) {
         <span class="costs-card-name">Yhteensä</span>
         <span class="costs-card-num">${fmtEuro(costsTotal)}</span>
         <span class="costs-card-num costs-card-future">${fmtEuro(costsFutureTotal)}</span>
-      </div>` : `
+      </div>
+      <div class="costs-card-all">Kaikkiaan ${fmtEuro(costsTotal + costsFutureTotal)}</div>` : `
       ${costGroups.filter(g => g.rows.length > 0).map(g => `
       <div style="display:flex; justify-content:space-between; font-size:14px; padding:3px 0;">
         <span style="color:var(--ink-soft);">${escapeHtml(g.name || 'Nimetön ryhmä')}</span>
