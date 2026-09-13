@@ -790,6 +790,23 @@ body {
   padding: 12px 0 2px; margin-top: 4px; border-top: 2px solid var(--border);
   font-weight: 700; font-size: 17px;
 }
+.costs-card-head, .costs-card-row, .costs-card-total {
+  display: grid; grid-template-columns: 1fr auto auto; gap: 10px; align-items: baseline;
+}
+.costs-card-head { padding: 0 0 4px; }
+.costs-card-head span {
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--ink-faint); text-align: right;
+}
+.costs-card-head span:first-child { text-align: left; }
+.costs-card-row { font-size: 14px; padding: 3px 0; }
+.costs-card-name { color: var(--ink-soft); }
+.costs-card-num { text-align: right; min-width: 52px; font-variant-numeric: tabular-nums; }
+.costs-card-future { color: var(--ink-faint); }
+.costs-card-total { font-size: 14px; }
+.costs-card-total .costs-card-name { font-weight: 600; color: var(--ink); }
+.costs-card-total .costs-card-num { font-weight: 700; font-variant-numeric: tabular-nums; }
+.costs-card-total .costs-card-future { color: var(--ink-soft); }
 .cost-group {
   margin-bottom: 12px; border-radius: 10px; padding-bottom: 2px;
   background: var(--bg-soft); transition: background-color 0.15s;
@@ -819,9 +836,11 @@ body {
   width: 17px; height: 17px; flex-shrink: 0; margin-top: 4px;
   accent-color: var(--accent); cursor: pointer;
 }
-.cost-row.excluded .cost-desc { color: var(--danger); }
+.cost-row.excluded .cost-desc { color: var(--ink-faint); }
 .cost-row.excluded .cost-amount-wrap input,
-.cost-row.excluded .cost-currency { text-decoration: line-through; }
+.cost-row.excluded .cost-currency { color: var(--ink-faint); }
+.cost-group-subtotal-future { color: var(--ink-faint); font-weight: 500; }
+.costs-total-future { font-size: 14px; font-weight: 600; color: var(--ink-soft); margin-left: 6px; }
 .cost-row-main { flex: 1; min-width: 0; }
 .cost-desc {
   display: block; width: 100%; border: none; background: transparent;
@@ -905,11 +924,16 @@ body {
     margin-top: 16px; padding-bottom: 4px; border-bottom: 1px solid #000;
   }
   .print-row { font-size: 13px; padding: 4px 0 4px 14px; }
-  .print-row-excluded span:first-child { color: #dc2626; }
-  .print-row-excluded span:last-child { text-decoration: line-through; }
+  .print-row-future span:first-child,
+  .print-row-future span:last-child { color: #777; }
+  .print-future { color: #777; font-weight: 500; }
   .print-total {
     font-weight: 700; font-size: 15px;
     margin-top: 20px; padding-top: 8px; border-top: 2px solid #000;
+  }
+  .print-total-future {
+    font-weight: 600; font-size: 13px; color: #555;
+    margin-top: 4px; padding-top: 0; border-top: none;
   }
 }
 
@@ -1264,10 +1288,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.12';
+const APP_VERSION = '0.11.13';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.13', date: '2026-09-13', changes: [
+    'Kustannusrivin valintaruutu tarkoittaa nyt "toteutunut" (ei valittu = tulossa oleva kustannus) aiemman "mukana summassa" sijaan. Ei-valittu rivi näkyy vaimeampana, ei enää punaisena tai yliviivattuna. Projektin etusivulla, muokkausnäkymässä ja Jaa/PDF-erittelyssä näkyy nyt toteutunut- ja tulossa-summa erikseen aina kun projektissa on tulossa olevia kustannuksia'
+  ]},
   { version: '0.11.12', date: '2026-08-30', changes: [
     'Uudistettu käynnistysnäyttö: Jatka-nappi ja versiotekstit poistettu, sovellus siirtyy nyt automaattisesti sisään lyhyen latausanimaation jälkeen. Myös alaosan talokuvitus poistettiin selkeyden vuoksi. Lisäksi korjattu pieni virhe, jossa ihan ensimmäinen käynnistys aiheutti tarpeettoman ylimääräisen sivun uudelleenlatauksen'
   ]},
@@ -3199,7 +3226,9 @@ async function renderProjectDetail(id) {
 
   const costGroups = migrateCostGroups(p);
   const costsTotal = costGroups.reduce((s, g) => s + costsGroupTotal(g), 0);
+  const costsFutureTotal = costGroups.reduce((s, g) => s + costsGroupFutureTotal(g), 0);
   const costsRowCount = costGroups.reduce((n, g) => n + g.rows.length, 0);
+  const showFutureCosts = costsFutureTotal > 0;
 
   const materials = p.materials || {};
   const dateRange = [p.startDate ? fmtDate(p.startDate) : null, p.endDate ? fmtDate(p.endDate) : null].filter(Boolean).join(' – ');
@@ -3224,7 +3253,20 @@ async function renderProjectDetail(id) {
       </div>
     </div>
     <div class="card" style="padding:14px 16px; margin-bottom:16px;" onclick="openCostsModal('${id}')">
-      ${costsRowCount === 0 ? `<div style="font-size:14px; color:var(--ink-soft);">Ei kustannuksia</div>` : `
+      ${costsRowCount === 0 ? `<div style="font-size:14px; color:var(--ink-soft);">Ei kustannuksia</div>` : showFutureCosts ? `
+      <div class="costs-card-head"><span>Ryhmä</span><span>Toteutunut</span><span>Tulossa</span></div>
+      ${costGroups.filter(g => g.rows.length > 0).map(g => `
+      <div class="costs-card-row">
+        <span class="costs-card-name">${escapeHtml(g.name || 'Nimetön ryhmä')}</span>
+        <span class="costs-card-num">${fmtEuro(costsGroupTotal(g))}</span>
+        <span class="costs-card-num costs-card-future">${costsGroupFutureTotal(g) > 0 ? fmtEuro(costsGroupFutureTotal(g)) : '–'}</span>
+      </div>`).join('')}
+      <div style="border-top:1px solid var(--border); margin:6px 0;"></div>
+      <div class="costs-card-total">
+        <span class="costs-card-name">Yhteensä</span>
+        <span class="costs-card-num">${fmtEuro(costsTotal)}</span>
+        <span class="costs-card-num costs-card-future">${fmtEuro(costsFutureTotal)}</span>
+      </div>` : `
       ${costGroups.filter(g => g.rows.length > 0).map(g => `
       <div style="display:flex; justify-content:space-between; font-size:14px; padding:3px 0;">
         <span style="color:var(--ink-soft);">${escapeHtml(g.name || 'Nimetön ryhmä')}</span>
@@ -3340,8 +3382,15 @@ function migrateCostGroups(p) {
 function costsGroupTotal(g) {
   return g.rows.reduce((s, r) => s + (r.excluded ? 0 : (parseFloat(r.amount) || 0)), 0);
 }
+// "excluded" = rivi ei ole valittu = tuleva/suunniteltu kustannus (ei vielä toteutunut)
+function costsGroupFutureTotal(g) {
+  return g.rows.reduce((s, r) => s + (r.excluded ? (parseFloat(r.amount) || 0) : 0), 0);
+}
 function costsGrandTotal() {
   return state._costsDraft.reduce((s, g) => s + costsGroupTotal(g), 0);
+}
+function costsGrandFutureTotal() {
+  return state._costsDraft.reduce((s, g) => s + costsGroupFutureTotal(g), 0);
 }
 const fmtEuro = (n) => Math.round(n) + ' €';
 
@@ -3357,7 +3406,7 @@ function openCostsModal(projectId) {
       <div class="modal-title">Kustannukset</div>
       <div id="costsGroups"></div>
       <button class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px; min-height:auto; margin-bottom:16px;" onclick="addCostGroup()">${icon('plus')}Ryhmä</button>
-      <div class="costs-total-row"><span>Yhteensä</span><span id="costsGrandTotal">${fmtEuro(costsGrandTotal())}</span></div>
+      <div class="costs-total-row"><span>Yhteensä</span><span><span id="costsGrandTotal">${fmtEuro(costsGrandTotal())}</span><span id="costsGrandFutureTotal" class="costs-total-future">${costsGrandFutureTotal() > 0 ? '/ ' + fmtEuro(costsGrandFutureTotal()) + ' tulossa' : ''}</span></span></div>
       <div class="btn-row">
         <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
         <button class="btn btn-primary" onclick="saveCostGroups('${projectId}')">Tallenna</button>
@@ -3396,7 +3445,7 @@ function renderCostGroups() {
           </div>` : `
           <button class="cost-move-toggle" onclick="toggleCostSelect('group','${g.id}')">${icon('chevrons-up-down')}</button>`}
         <input type="text" class="cost-group-name" value="${escapeHtml(g.name || '')}" placeholder="Ryhmän nimi" oninput="state._costsDraft[${gi}].name=this.value">
-        <span class="cost-group-subtotal">${fmtEuro(costsGroupTotal(g))}</span>
+        <span class="cost-group-subtotal"><span class="cost-group-subtotal-real">${fmtEuro(costsGroupTotal(g))}</span><span class="cost-group-subtotal-future">${costsGroupFutureTotal(g) > 0 ? ' / ' + fmtEuro(costsGroupFutureTotal(g)) : ''}</span></span>
         <button class="row-remove" onclick="removeCostGroup(${gi})">${icon('trash-2')}</button>
       </div>
       ${g.rows.map((r, ri) => {
@@ -3405,7 +3454,7 @@ function renderCostGroups() {
         const isLastOverall = gi === groups.length - 1 && ri === g.rows.length - 1;
         return `
         <div class="cost-row ${ri % 2 === 1 ? 'alt' : ''} ${rSelected ? 'selected' : ''} ${r.excluded ? 'excluded' : ''}" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
-          <input type="checkbox" class="cost-row-checkbox" title="Mukana summassa" ${r.excluded ? '' : 'checked'} onchange="state._costsDraft[${gi}].rows[${ri}].excluded=!this.checked; renderCostGroups(); updateCostsTotals();">
+          <input type="checkbox" class="cost-row-checkbox" title="Toteutunut (ei valittu = tulossa)" ${r.excluded ? '' : 'checked'} onchange="state._costsDraft[${gi}].rows[${ri}].excluded=!this.checked; renderCostGroups(); updateCostsTotals();">
           ${rSelected ? `
             <div class="cost-move-arrows">
               <button onclick="moveCostRow('${r.id}', -1)" ${isFirstOverall ? 'disabled' : ''}>${icon('chevron-up')}</button>
@@ -3487,11 +3536,16 @@ function autoGrowCostDesc(el) {
 // jottei tekstikentän kirjoittaminen menetä kohdistusta.
 function updateCostsTotals() {
   state._costsDraft.forEach((g, gi) => {
-    const el = document.querySelector(`.cost-group[data-group-idx="${gi}"] .cost-group-subtotal`);
-    if (el) el.textContent = fmtEuro(costsGroupTotal(g));
+    const groupEl = document.querySelector(`.cost-group[data-group-idx="${gi}"]`);
+    const realEl = groupEl?.querySelector('.cost-group-subtotal-real');
+    const futureEl = groupEl?.querySelector('.cost-group-subtotal-future');
+    if (realEl) realEl.textContent = fmtEuro(costsGroupTotal(g));
+    if (futureEl) futureEl.textContent = costsGroupFutureTotal(g) > 0 ? ' / ' + fmtEuro(costsGroupFutureTotal(g)) : '';
   });
   const grand = document.getElementById('costsGrandTotal');
   if (grand) grand.textContent = fmtEuro(costsGrandTotal());
+  const grandFuture = document.getElementById('costsGrandFutureTotal');
+  if (grandFuture) grandFuture.textContent = costsGrandFutureTotal() > 0 ? '/ ' + fmtEuro(costsGrandFutureTotal()) + ' tulossa' : '';
 }
 
 function addCostGroup() {
@@ -3536,14 +3590,20 @@ async function saveCostGroups(projectId) {
 function buildCostsShareText(title, groups) {
   const lines = [`${title} – kustannukset`, ''];
   groups.forEach(g => {
-    lines.push(`${g.name || 'Nimetön ryhmä'} ${fmtEuro(costsGroupTotal(g))}`);
+    const future = costsGroupFutureTotal(g);
+    lines.push(`${g.name || 'Nimetön ryhmä'} ${fmtEuro(costsGroupTotal(g))}${future > 0 ? ` (+ ${fmtEuro(future)} tulossa)` : ''}`);
     g.rows.forEach(r => {
-      lines.push(`- ${r.desc || 'Nimetön'}: ${fmtEuro(parseFloat(r.amount) || 0)}${r.excluded ? ' (ei mukana summassa)' : ''}`);
+      lines.push(`- ${r.desc || 'Nimetön'}: ${fmtEuro(parseFloat(r.amount) || 0)}${r.excluded ? ' (tulossa)' : ''}`);
     });
     lines.push('');
   });
   const total = groups.reduce((s, g) => s + costsGroupTotal(g), 0);
-  lines.push(`Yhteensä: ${fmtEuro(total)}`);
+  const futureTotal = groups.reduce((s, g) => s + costsGroupFutureTotal(g), 0);
+  lines.push(`Toteutunut yhteensä: ${fmtEuro(total)}`);
+  if (futureTotal > 0) {
+    lines.push(`Tulossa yhteensä: ${fmtEuro(futureTotal)}`);
+    lines.push(`Kaikkiaan: ${fmtEuro(total + futureTotal)}`);
+  }
   return lines.join('\n');
 }
 
@@ -3582,14 +3642,19 @@ function shareCostsShareText() {
 function printCostsShare() {
   const groups = state._costsShareGroups || [];
   const total = groups.reduce((s, g) => s + costsGroupTotal(g), 0);
+  const futureTotal = groups.reduce((s, g) => s + costsGroupFutureTotal(g), 0);
   document.getElementById('costsPrintArea').innerHTML = `
     <h1>${escapeHtml(state._costsShareTitle || '')}</h1>
     <h2>Kustannukset</h2>
-    ${groups.map(g => `
-      <div class="print-group-header"><span>${escapeHtml(g.name || 'Nimetön ryhmä')}</span><span>${fmtEuro(costsGroupTotal(g))}</span></div>
-      ${g.rows.map(r => `<div class="print-row ${r.excluded ? 'print-row-excluded' : ''}"><span>${escapeHtml(r.desc || '')}</span><span>${fmtEuro(parseFloat(r.amount) || 0)}</span></div>`).join('')}
-    `).join('')}
-    <div class="print-total"><span>Yhteensä</span><span>${fmtEuro(total)}</span></div>
+    ${groups.map(g => {
+      const future = costsGroupFutureTotal(g);
+      return `
+      <div class="print-group-header"><span>${escapeHtml(g.name || 'Nimetön ryhmä')}</span><span>${fmtEuro(costsGroupTotal(g))}${future > 0 ? ` <span class="print-future">+ ${fmtEuro(future)} tulossa</span>` : ''}</span></div>
+      ${g.rows.map(r => `<div class="print-row ${r.excluded ? 'print-row-future' : ''}"><span>${escapeHtml(r.desc || '')}</span><span>${fmtEuro(parseFloat(r.amount) || 0)}</span></div>`).join('')}
+    `;
+    }).join('')}
+    <div class="print-total"><span>Toteutunut yhteensä</span><span>${fmtEuro(total)}</span></div>
+    ${futureTotal > 0 ? `<div class="print-total print-total-future"><span>Tulossa yhteensä</span><span>${fmtEuro(futureTotal)}</span></div>` : ''}
   `;
   window.print();
 }
