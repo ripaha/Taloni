@@ -842,14 +842,14 @@ body {
 .cost-group-subtotal { font-size: 14px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; flex-shrink: 0; }
 .cost-row {
   display: flex; align-items: flex-start; gap: 6px;
-  padding: 7px 10px 7px 26px; border-bottom: 1px solid var(--border);
+  padding: 7px 10px; border-bottom: 1px solid var(--border);
   border-radius: 8px; transition: background-color 0.15s;
 }
 .cost-row.alt { background: rgba(15, 23, 42, 0.035); }
 .cost-row.selected { background: var(--accent-soft); }
 .cost-row:last-child { border-bottom: none; }
 .cost-row-checkbox {
-  width: 17px; height: 17px; flex-shrink: 0; margin-top: 4px;
+  width: 18px; height: 18px; flex-shrink: 0; margin-top: 5px;
   accent-color: var(--accent); cursor: pointer;
 }
 .cost-row.excluded .cost-desc { color: var(--ink-faint); }
@@ -890,21 +890,12 @@ body {
 .row-remove svg { width: 16px; height: 16px; }
 .cost-move-toggle {
   flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  width: 22px; height: 28px; margin-top: 2px;
+  width: 34px; height: 34px; margin-top: 1px; border-radius: 8px;
   background: none; border: none; color: var(--ink-faint); cursor: pointer; padding: 0;
 }
-.cost-move-toggle svg { width: 16px; height: 16px; }
-.cost-move-arrows {
-  flex-shrink: 0; display: flex; flex-direction: column;
-  width: 22px; margin-top: 2px;
-}
-.cost-move-arrows button {
-  width: 22px; height: 14px; padding: 0; border: none; background: transparent;
-  color: var(--accent); cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-}
-.cost-move-arrows button:disabled { color: var(--ink-faint); cursor: default; }
-.cost-move-arrows button svg { width: 14px; height: 14px; }
+.cost-move-toggle svg { width: 19px; height: 19px; }
+.cost-row.selected .cost-move-toggle,
+.cost-group.selected .cost-move-toggle { color: var(--accent); }
 .cost-add-row-btn {
   display: flex; align-items: center; justify-content: center; gap: 4px;
   width: 100%; padding: 8px; margin-top: 2px;
@@ -913,6 +904,21 @@ body {
   font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer;
 }
 .cost-add-row-btn svg { width: 15px; height: 15px; }
+
+/* Rivin/ryhmän siirtotilan työkalupalkki (korvaa Peruuta/Tallenna-rivin
+   alapalkissa niin kauan kun jokin on valittuna, ks. renderCostsFooter) */
+.cost-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; }
+.cost-toolbar-label { font-size: 13px; color: var(--ink-soft); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cost-toolbar-actions { display: flex; gap: 8px; flex-shrink: 0; }
+.cost-toolbar-btn {
+  width: 46px; height: 46px; border-radius: 12px; border: none;
+  background: var(--bg-soft); color: var(--ink); cursor: pointer;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.cost-toolbar-btn svg { width: 20px; height: 20px; }
+.cost-toolbar-btn:disabled { color: var(--ink-faint); cursor: default; }
+.cost-toolbar-btn.danger { background: var(--danger-soft); color: var(--danger); }
+.cost-toolbar-done { flex-shrink: 0; width: auto; padding: 0 20px; min-height: 46px; }
 
 /* --- Kustannusten jakaminen --- */
 .costs-share-textarea {
@@ -1304,10 +1310,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.17';
+const APP_VERSION = '0.11.18';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.18', date: '2026-09-13', changes: [
+    'Uudistettu kustannusrivien järjestyksen vaihto: pienten ylös/alas-nuolien sijaan valittu rivi/ryhmä näyttää nyt isot Ylös/Alas/Poista-napit alapalkissa, ja siirretty rivi/ryhmä vieritetään aina näkyviin. Poisto-nappi siirtyi pois riviltä tähän samaan palkkiin, ja sen tilalle rivin oikeaan reunaan siirtyi Toteutunut-täppä. Siirtokahvan ikoni vaihdettu selkeämpään tarttumakahva-symboliin ja isommaksi'
+  ]},
   { version: '0.11.17', date: '2026-09-13', changes: [
     'Korjattu: edellisen version position:sticky-toteutus ei pitänyt Peruuta/Tallenna-riviä luotettavasti näytön alalaidassa Androidilla (nappirivi saattoi jäädä kesken listaa, sisältöä näkyi sen alapuolella). Nappirivi on nyt oma kiinteä lohko vieritettävän sisällön ulkopuolella, mikä pitää sen aina täsmälleen alareunassa'
   ]},
@@ -3430,17 +3439,16 @@ let costsSelected = null; // { type: 'row'|'group', id }
 function openCostsModal(projectId) {
   dbGet('projects', projectId).then(p => {
     state._costsDraft = JSON.parse(JSON.stringify(migrateCostGroups(p)));
+    state._costsProjectId = projectId;
     costsSelected = null;
     openModal(`
       <div class="modal-title">Kustannukset</div>
       <div id="costsGroups"></div>
       <button class="btn btn-secondary" style="width:100%; padding:10px; font-size:13px; min-height:auto; margin-bottom:16px;" onclick="addCostGroup()">${icon('plus')}Ryhmä</button>
       <div class="costs-total-row"><span>Yhteensä</span><span><span id="costsGrandTotal">${fmtEuro(costsGrandTotal())}</span><span id="costsGrandFutureTotal" class="costs-total-future">${costsGrandFutureTotal() > 0 ? '/ ' + fmtEuro(costsGrandFutureTotal()) + ' tulossa' : ''}</span></span></div>
-      <div class="btn-row">
-        <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
-        <button class="btn btn-primary" onclick="saveCostGroups('${projectId}')">Tallenna</button>
-      </div>`);
+      <div class="btn-row"></div>`);
     renderCostGroups();
+    renderCostsFooter();
   });
 }
 
@@ -3467,29 +3475,15 @@ function renderCostGroups() {
     return `
     <div class="cost-group ${gSelected ? 'selected' : ''}" data-group-idx="${gi}" data-group-id="${g.id}">
       <div class="cost-group-header">
-        ${gSelected ? `
-          <div class="cost-move-arrows">
-            <button onclick="moveCostGroup('${g.id}', -1)" ${gi === 0 ? 'disabled' : ''}>${icon('chevron-up')}</button>
-            <button onclick="moveCostGroup('${g.id}', 1)" ${gi === groups.length - 1 ? 'disabled' : ''}>${icon('chevron-down')}</button>
-          </div>` : `
-          <button class="cost-move-toggle" onclick="toggleCostSelect('group','${g.id}')">${icon('chevrons-up-down')}</button>`}
+        <button class="cost-move-toggle" onclick="toggleCostSelect('group','${g.id}')">${icon('grip-vertical')}</button>
         <input type="text" class="cost-group-name" value="${escapeHtml(g.name || '')}" placeholder="Ryhmän nimi" oninput="state._costsDraft[${gi}].name=this.value">
         <span class="cost-group-subtotal"><span class="cost-group-subtotal-real">${fmtEuro(costsGroupTotal(g))}</span><span class="cost-group-subtotal-future">${costsGroupFutureTotal(g) > 0 ? ' / ' + fmtEuro(costsGroupFutureTotal(g)) : ''}</span></span>
-        <button class="row-remove" onclick="removeCostGroup(${gi})">${icon('trash-2')}</button>
       </div>
       ${g.rows.map((r, ri) => {
         const rSelected = costsSelected?.type === 'row' && costsSelected.id === r.id;
-        const isFirstOverall = gi === 0 && ri === 0;
-        const isLastOverall = gi === groups.length - 1 && ri === g.rows.length - 1;
         return `
         <div class="cost-row ${ri % 2 === 1 ? 'alt' : ''} ${rSelected ? 'selected' : ''} ${r.excluded ? 'excluded' : ''}" data-group-idx="${gi}" data-row-idx="${ri}" data-row-id="${r.id}">
-          <input type="checkbox" class="cost-row-checkbox" title="Toteutunut (ei valittu = tulossa)" ${r.excluded ? '' : 'checked'} onchange="state._costsDraft[${gi}].rows[${ri}].excluded=!this.checked; renderCostGroups(); updateCostsTotals();">
-          ${rSelected ? `
-            <div class="cost-move-arrows">
-              <button onclick="moveCostRow('${r.id}', -1)" ${isFirstOverall ? 'disabled' : ''}>${icon('chevron-up')}</button>
-              <button onclick="moveCostRow('${r.id}', 1)" ${isLastOverall ? 'disabled' : ''}>${icon('chevron-down')}</button>
-            </div>` : `
-            <button class="cost-move-toggle" onclick="toggleCostSelect('row','${r.id}')">${icon('chevrons-up-down')}</button>`}
+          <button class="cost-move-toggle" onclick="toggleCostSelect('row','${r.id}')">${icon('grip-vertical')}</button>
           <div class="cost-row-main">
             <textarea rows="1" class="cost-desc" placeholder="Kuvaus" oninput="autoGrowCostDesc(this); state._costsDraft[${gi}].rows[${ri}].desc=this.value">${escapeHtml(r.desc || '')}</textarea>
           </div>
@@ -3497,7 +3491,7 @@ function renderCostGroups() {
             <input type="number" step="1" value="${r.amount || ''}" placeholder="0" oninput="state._costsDraft[${gi}].rows[${ri}].amount=this.value; updateCostsTotals()">
             <span class="cost-currency">€</span>
           </div>
-          <button class="row-remove" onclick="removeCostRow(${gi}, ${ri})">${icon('x')}</button>
+          <input type="checkbox" class="cost-row-checkbox" title="Toteutunut (ei valittu = tulossa)" ${r.excluded ? '' : 'checked'} onchange="state._costsDraft[${gi}].rows[${ri}].excluded=!this.checked; renderCostGroups(); updateCostsTotals();">
         </div>`;
       }).join('')}
       ${gi === activeGi ? `<button class="cost-add-row-btn" onclick="addCostRowGlobal()">${icon('plus')}Rivi</button>` : ''}
@@ -3510,6 +3504,7 @@ function renderCostGroups() {
 function toggleCostSelect(type, id) {
   costsSelected = (costsSelected?.type === type && costsSelected.id === id) ? null : { type, id };
   renderCostGroups();
+  renderCostsFooter();
 }
 
 function moveCostGroup(id, dir) {
@@ -3544,6 +3539,77 @@ function moveCostRow(rowId, dir) {
   renderCostGroups();
 }
 
+// Siirtää tai poistaa parhaillaan valitun rivin/ryhmän — näitä kutsuu alapalkin
+// työkalurivi (ks. renderCostsFooter), joka korvaa Peruuta/Tallenna-rivin
+// niin kauan kuin jokin on valittuna.
+function moveCostsSelected(dir) {
+  if (!costsSelected) return;
+  if (costsSelected.type === 'group') moveCostGroup(costsSelected.id, dir);
+  else moveCostRow(costsSelected.id, dir);
+  renderCostsFooter();
+  scrollCostsSelectedIntoView();
+}
+
+function deleteCostsSelected() {
+  if (!costsSelected) return;
+  if (costsSelected.type === 'group') {
+    const gi = state._costsDraft.findIndex(g => g.id === costsSelected.id);
+    if (gi !== -1) removeCostGroup(gi);
+  } else {
+    let gi = -1, ri = -1;
+    state._costsDraft.forEach((g, i) => {
+      const j = g.rows.findIndex(r => r.id === costsSelected.id);
+      if (j !== -1) { gi = i; ri = j; }
+    });
+    if (gi !== -1) removeCostRow(gi, ri);
+  }
+}
+
+function scrollCostsSelectedIntoView() {
+  if (!costsSelected) return;
+  const attr = costsSelected.type === 'group' ? 'data-group-id' : 'data-row-id';
+  document.querySelector(`[${attr}="${costsSelected.id}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+// Rakentaa alapalkin sisällön: Peruuta/Tallenna normaalisti, tai Ylös/Alas/Poista/Valmis
+// kun rivi tai ryhmä on valittuna siirtoa/poistoa varten.
+function renderCostsFooter() {
+  const btnRow = document.querySelector('#modal .btn-row');
+  if (!btnRow) return;
+  if (!costsSelected) {
+    btnRow.innerHTML = `
+      <button class="btn btn-ghost" onclick="closeModal()">Peruuta</button>
+      <button class="btn btn-primary" onclick="saveCostGroups('${state._costsProjectId}')">Tallenna</button>`;
+    refreshIcons();
+    return;
+  }
+  const groups = state._costsDraft;
+  let atTop = false, atBottom = false, label = '';
+  if (costsSelected.type === 'group') {
+    const idx = groups.findIndex(g => g.id === costsSelected.id);
+    atTop = idx <= 0;
+    atBottom = idx === groups.length - 1;
+    label = groups[idx]?.name || 'Nimetön ryhmä';
+  } else {
+    let gi = -1, ri = -1;
+    groups.forEach((g, i) => { const j = g.rows.findIndex(r => r.id === costsSelected.id); if (j !== -1) { gi = i; ri = j; } });
+    atTop = gi === 0 && ri === 0;
+    atBottom = gi === groups.length - 1 && ri === groups[gi].rows.length - 1;
+    label = groups[gi]?.rows[ri]?.desc || 'Nimetön rivi';
+  }
+  btnRow.innerHTML = `
+    <div class="cost-toolbar">
+      <span class="cost-toolbar-label">${escapeHtml(label)}</span>
+      <div class="cost-toolbar-actions">
+        <button class="cost-toolbar-btn" title="Siirrä ylös" onclick="moveCostsSelected(-1)" ${atTop ? 'disabled' : ''}>${icon('chevron-up')}</button>
+        <button class="cost-toolbar-btn" title="Siirrä alas" onclick="moveCostsSelected(1)" ${atBottom ? 'disabled' : ''}>${icon('chevron-down')}</button>
+        <button class="cost-toolbar-btn danger" title="Poista" onclick="deleteCostsSelected()">${icon('trash-2')}</button>
+      </div>
+      <button class="btn btn-primary cost-toolbar-done" onclick="toggleCostSelect('${costsSelected.type}','${costsSelected.id}')">Valmis</button>
+    </div>`;
+  refreshIcons();
+}
+
 function addCostRowGlobal() {
   if (state._costsDraft.length === 0) {
     state._costsDraft.push({ id: uid(), name: '', rows: [] });
@@ -3552,7 +3618,6 @@ function addCostRowGlobal() {
   const group = state._costsDraft[gi === -1 ? state._costsDraft.length - 1 : gi];
   const newRow = { id: uid(), desc: '', amount: '' };
   group.rows.push(newRow);
-  costsSelected = { type: 'row', id: newRow.id };
   renderCostGroups();
 }
 
@@ -3591,7 +3656,9 @@ function removeCostGroup(gi) {
     return;
   }
   state._costsDraft.splice(gi, 1);
+  if (costsSelected?.type === 'group' && costsSelected.id === g.id) costsSelected = null;
   renderCostGroups();
+  renderCostsFooter();
   updateCostsTotals();
 }
 
@@ -3599,7 +3666,9 @@ function removeCostRow(gi, ri) {
   const row = state._costsDraft[gi].rows[ri];
   confirmDialog(`Poistetaanko rivi "${row.desc || 'Nimetön'}"?`, () => {
     state._costsDraft[gi].rows.splice(ri, 1);
+    if (costsSelected?.type === 'row' && costsSelected.id === row.id) costsSelected = null;
     renderCostGroups();
+    renderCostsFooter();
     updateCostsTotals();
   });
 }
