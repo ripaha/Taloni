@@ -825,12 +825,13 @@ body {
 .costs-card-all { text-align: right; font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
 .cost-group {
   margin-bottom: 12px; border-radius: 10px; padding-bottom: 2px;
-  background: var(--bg-soft); transition: background-color 0.15s;
+  background: var(--bg-soft); transition: box-shadow 0.15s;
 }
-.cost-group.selected { background: var(--accent-soft); }
+.cost-group.selected { box-shadow: 0 0 0 2px var(--warn) inset; }
 .cost-group-header {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 10px; border-bottom: 2px solid var(--accent);
+  background: var(--bg); border-radius: 10px 10px 0 0;
 }
 .cost-group-name {
   flex: 1; min-width: 0; border: none; background: transparent;
@@ -843,10 +844,10 @@ body {
 .cost-row {
   display: flex; align-items: flex-start; gap: 6px;
   padding: 7px 10px; border-bottom: 1px solid var(--border);
-  border-radius: 8px; transition: background-color 0.15s;
+  border-radius: 8px; transition: background-color 0.15s, box-shadow 0.15s;
 }
 .cost-row.alt { background: rgba(15, 23, 42, 0.035); }
-.cost-row.selected { background: var(--accent-soft); }
+.cost-row.selected { background: var(--warn-soft); box-shadow: 0 0 0 2px var(--warn) inset; }
 .cost-row:last-child { border-bottom: none; }
 .cost-row-checkbox {
   width: 18px; height: 18px; flex-shrink: 0; margin-top: 5px;
@@ -895,7 +896,7 @@ body {
 }
 .cost-move-toggle svg { width: 19px; height: 19px; }
 .cost-row.selected .cost-move-toggle,
-.cost-group.selected .cost-move-toggle { color: var(--accent); }
+.cost-group.selected .cost-move-toggle { color: var(--warn); }
 .cost-add-row-btn {
   display: flex; align-items: center; justify-content: center; gap: 4px;
   width: 100%; padding: 8px; margin-top: 2px;
@@ -1310,10 +1311,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.19';
+const APP_VERSION = '0.11.20';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.20', date: '2026-09-13', changes: [
+    'Kustannusryhmän otsikkoriville oma vaalea tausta erottamaan sen selkeämmin riveistä (aiemmin vain ohut sininen alaviiva). Valittu rivi/ryhmä (tarttumakahvasta painettu) näkyy nyt selkeällä oranssilla kehyksellä ja vaalealla täytöllä sinisen sijaan, jotta se ei sekoitu otsikon siniseen tai poiston punaiseen'
+  ]},
   { version: '0.11.19', date: '2026-09-13', changes: [
     'Korjattu: ilmoituspalikka (esim. "Poista tai siirrä ensin ryhmän rivit") jäi näkymättömiin modaalin taakse, koska sen z-index oli pienempi kuin modaalin. Nyt ilmoitus näkyy aina modaalin päällä'
   ]},
