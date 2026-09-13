@@ -482,13 +482,16 @@ body {
 .btn-danger { background: transparent; color: var(--danger); border: 1.5px solid var(--danger); width: 100%; }
 .btn-row { display: flex; gap: 10px; margin-top: 10px; }
 .btn-row .btn { flex: 1; }
-/* Modaalin viimeinen nappirivi (Peruuta/Tallenna) pysyy näkyvissä vieritettäessä,
-   jotta pitkän listan (esim. kustannusrivit) muokkaus ei vaadi alas vierittämistä
-   ennen tallennusta */
-.modal-sheet > .btn-row:last-child {
-  position: sticky; bottom: 0; z-index: 2;
-  margin: 10px -22px 0; padding: 10px 22px 0;
-  background: var(--bg);
+/* Modaalin viimeinen nappirivi (Peruuta/Tallenna) pidetään näkyvissä omana
+   kiinteänä lohkonaan sisällön ulkopuolella (ks. openModal), jotta pitkän
+   listan (esim. kustannusrivit) muokkaus ei vaadi alas vierittämistä ennen
+   tallennusta. position:sticky osoittautui epäluotettavaksi Androidilla
+   yhdessä modaalin backdrop-filter-sumennuksen kanssa. */
+.modal-sheet.fixed-footer { display: flex; flex-direction: column; overflow: hidden; }
+.modal-scroll { overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.modal-sheet.fixed-footer > .btn-row {
+  flex: 0 0 auto; margin-top: 10px; padding-top: 10px;
+  border-top: 1px solid var(--border-soft);
   box-shadow: 0 -8px 12px -6px rgba(15, 23, 42, 0.10);
 }
 
@@ -1301,10 +1304,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.16';
+const APP_VERSION = '0.11.17';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.17', date: '2026-09-13', changes: [
+    'Korjattu: edellisen version position:sticky-toteutus ei pitänyt Peruuta/Tallenna-riviä luotettavasti näytön alalaidassa Androidilla (nappirivi saattoi jäädä kesken listaa, sisältöä näkyi sen alapuolella). Nappirivi on nyt oma kiinteä lohko vieritettävän sisällön ulkopuolella, mikä pitää sen aina täsmälleen alareunassa'
+  ]},
   { version: '0.11.16', date: '2026-09-13', changes: [
     'Modaalien Peruuta/Tallenna-nappirivi pysyy nyt näkyvissä ruudun alalaidassa vieritettäessä (esim. kustannusrivien muokkaus), eikä tallennusta tarvitse enää etsiä vierittämällä listan loppuun'
   ]},
@@ -5076,7 +5082,19 @@ function openAddReminderPickerModal() {
 // Modaalit
 // ============================================================
 function openModal(html) {
-  document.getElementById('modalSheet').innerHTML = `<div class="modal-handle"></div><button class="modal-close-x" onclick="closeModal()">${icon('x')}</button>${html}`;
+  const sheet = document.getElementById('modalSheet');
+  sheet.className = 'modal-sheet';
+  sheet.innerHTML = `<div class="modal-handle"></div><button class="modal-close-x" onclick="closeModal()">${icon('x')}</button>${html}`;
+  // Jos modaali päättyy nappiriviin, se siirretään omaksi kiinteäksi lohkoksi
+  // vieritettävän sisällön ulkopuolelle (ks. .modal-sheet.fixed-footer CSS:ssä).
+  const lastEl = sheet.lastElementChild;
+  if (lastEl && lastEl.classList.contains('btn-row')) {
+    const scrollWrap = document.createElement('div');
+    scrollWrap.className = 'modal-scroll';
+    while (sheet.firstChild !== lastEl) scrollWrap.appendChild(sheet.firstChild);
+    sheet.insertBefore(scrollWrap, lastEl);
+    sheet.classList.add('fixed-footer');
+  }
   document.getElementById('modal').classList.add('active');
   refreshIcons();
 }
