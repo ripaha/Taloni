@@ -825,9 +825,9 @@ body {
 .costs-card-all { text-align: right; font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
 .cost-group {
   margin-bottom: 12px; border-radius: 10px; padding-bottom: 2px;
-  background: var(--bg-soft); transition: box-shadow 0.15s;
+  background: var(--bg-soft); border: 2px solid transparent; transition: border-color 0.15s;
 }
-.cost-group.selected { box-shadow: 0 0 0 2px var(--warn) inset; }
+.cost-group.selected { border-color: var(--warn); }
 .cost-group-header {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 10px; border-bottom: 2px solid var(--accent);
@@ -1311,10 +1311,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.22';
+const APP_VERSION = '0.11.23';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.23', date: '2026-09-13', changes: [
+    'Korjattu: ryhmän valintakehys ei kiertänyt otsikkoa, koska otsikon oma läpinäkymätön tausta peitti kehyksen juuri siltä kohtaa. Kehys toteutettu nyt oikealla reunaviivalla, joka piirtyy aina kaiken päälle — kiertää nyt koko ryhmän otsikkoineen luotettavasti'
+  ]},
   { version: '0.11.22', date: '2026-09-13', changes: [
     'Ryhmän valinnan oranssi kehys kiertää nyt koko ryhmän ulkoreunat (otsikko + kaikki rivit + "+ Rivi" -nappi) yhtenä yhtenäisenä korttina, pyöristys vain ylä- ja alakulmissa. Poistettu myös rivien oma pyöristys, joka näkyi häiritsevästi kehyksen sisällä'
   ]},
