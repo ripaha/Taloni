@@ -825,13 +825,17 @@ body {
 .costs-card-all { text-align: right; font-size: 12px; color: var(--ink-faint); margin-top: 4px; }
 .cost-group {
   margin-bottom: 12px; border-radius: 10px; padding-bottom: 2px;
-  background: var(--bg-soft); transition: box-shadow 0.15s;
+  background: var(--bg-soft);
 }
-.cost-group.selected { box-shadow: 0 0 0 2px var(--warn) inset; }
 .cost-group-header {
   display: flex; align-items: center; gap: 6px;
   padding: 8px 10px; border-bottom: 2px solid var(--accent);
   background: var(--bg); border-radius: 10px 10px 0 0;
+  transition: background-color 0.15s, box-shadow 0.15s, border-radius 0.15s;
+}
+.cost-group.selected .cost-group-header {
+  background: var(--warn-soft); border-bottom-color: transparent;
+  border-radius: 10px; box-shadow: 0 0 0 2px var(--warn) inset;
 }
 .cost-group-name {
   flex: 1; min-width: 0; border: none; background: transparent;
@@ -1311,10 +1315,13 @@ body {
 // ============================================================
 // PWA + Service Worker
 // ============================================================
-const APP_VERSION = '0.11.20';
+const APP_VERSION = '0.11.21';
 
 // Versiohistoria — uusin ensin. Päivitä tätä kun teet muutoksia.
 const CHANGELOG = [
+  { version: '0.11.21', date: '2026-09-13', changes: [
+    'Korjattu: valitun ryhmän oranssi kehys kiersi koko kortin (otsikko+rivit+Rivi-nappi) eikä näyttänyt samalta kuin rivin valinta. Nyt vain ryhmän otsikkorivi saa saman selkeän oranssin pilleri-ulkoasun kuin yksittäinen valittu rivi'
+  ]},
   { version: '0.11.20', date: '2026-09-13', changes: [
     'Kustannusryhmän otsikkoriville oma vaalea tausta erottamaan sen selkeämmin riveistä (aiemmin vain ohut sininen alaviiva). Valittu rivi/ryhmä (tarttumakahvasta painettu) näkyy nyt selkeällä oranssilla kehyksellä ja vaalealla täytöllä sinisen sijaan, jotta se ei sekoitu otsikon siniseen tai poiston punaiseen'
   ]},
